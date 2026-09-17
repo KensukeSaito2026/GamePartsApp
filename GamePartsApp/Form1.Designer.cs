@@ -74,6 +74,7 @@
             rightTimer = new System.Windows.Forms.Timer(components);
             colorDialog2 = new ColorDialog();
             printDialog1 = new PrintDialog();
+            gameTabPage = new TabPage();
             ((System.ComponentModel.ISupportInitialize)gachaPictureBox).BeginInit();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -102,9 +103,10 @@
             // 
             // gachaPictureBox
             // 
-            gachaPictureBox.Location = new Point(69, 67);
+            gachaPictureBox.Location = new Point(60, 50);
+            gachaPictureBox.Margin = new Padding(3, 2, 3, 2);
             gachaPictureBox.Name = "gachaPictureBox";
-            gachaPictureBox.Size = new Size(170, 137);
+            gachaPictureBox.Size = new Size(149, 103);
             gachaPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             gachaPictureBox.TabIndex = 1;
             gachaPictureBox.TabStop = false;
@@ -114,10 +116,12 @@
             tabControl1.Controls.Add(tabPage1);
             tabControl1.Controls.Add(tabPage2);
             tabControl1.Controls.Add(tabPage3);
-            tabControl1.Location = new Point(24, 26);
+            tabControl1.Controls.Add(gameTabPage);
+            tabControl1.Location = new Point(21, 20);
+            tabControl1.Margin = new Padding(3, 2, 3, 2);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new Size(666, 384);
+            tabControl1.Size = new Size(583, 288);
             tabControl1.TabIndex = 0;
             // 
             // tabPage1
@@ -126,10 +130,11 @@
             tabPage1.Controls.Add(skill2Panel);
             tabPage1.Controls.Add(skill3Panel);
             tabPage1.Controls.Add(rerollButton);
-            tabPage1.Location = new Point(4, 29);
+            tabPage1.Location = new Point(4, 24);
+            tabPage1.Margin = new Padding(3, 2, 3, 2);
             tabPage1.Name = "tabPage1";
-            tabPage1.Padding = new Padding(3);
-            tabPage1.Size = new Size(658, 351);
+            tabPage1.Padding = new Padding(3, 2, 3, 2);
+            tabPage1.Size = new Size(575, 260);
             tabPage1.TabIndex = 0;
             tabPage1.Text = "スキル選択";
             tabPage1.UseVisualStyleBackColor = true;
@@ -139,9 +144,10 @@
             skill1Panel.Controls.Add(skill1RarityLabel);
             skill1Panel.Controls.Add(skill1DescLabel);
             skill1Panel.Controls.Add(skill1Label);
-            skill1Panel.Location = new Point(37, 64);
+            skill1Panel.Location = new Point(32, 48);
+            skill1Panel.Margin = new Padding(3, 2, 3, 2);
             skill1Panel.Name = "skill1Panel";
-            skill1Panel.Size = new Size(162, 162);
+            skill1Panel.Size = new Size(142, 122);
             skill1Panel.TabIndex = 10;
             skill1Panel.Click += skill1Panel_Click;
             skill1Panel.MouseEnter += skill1Panel_MouseEnter;
@@ -150,9 +156,9 @@
             // skill1RarityLabel
             // 
             skill1RarityLabel.AutoSize = true;
-            skill1RarityLabel.Location = new Point(47, 105);
+            skill1RarityLabel.Location = new Point(41, 79);
             skill1RarityLabel.Name = "skill1RarityLabel";
-            skill1RarityLabel.Size = new Size(50, 20);
+            skill1RarityLabel.Size = new Size(38, 15);
             skill1RarityLabel.TabIndex = 5;
             skill1RarityLabel.Text = "label5";
             skill1RarityLabel.MouseEnter += skill1Panel_MouseEnter;
@@ -161,9 +167,9 @@
             // skill1DescLabel
             // 
             skill1DescLabel.AutoSize = true;
-            skill1DescLabel.Location = new Point(47, 63);
+            skill1DescLabel.Location = new Point(41, 47);
             skill1DescLabel.Name = "skill1DescLabel";
-            skill1DescLabel.Size = new Size(50, 20);
+            skill1DescLabel.Size = new Size(38, 15);
             skill1DescLabel.TabIndex = 4;
             skill1DescLabel.Text = "label4";
             skill1DescLabel.MouseEnter += skill1Panel_MouseEnter;
@@ -172,9 +178,9 @@
             // skill1Label
             // 
             skill1Label.AutoSize = true;
-            skill1Label.Location = new Point(47, 17);
+            skill1Label.Location = new Point(41, 13);
             skill1Label.Name = "skill1Label";
-            skill1Label.Size = new Size(50, 20);
+            skill1Label.Size = new Size(38, 15);
             skill1Label.TabIndex = 1;
             skill1Label.Text = "label1";
             skill1Label.MouseEnter += skill1Panel_MouseEnter;
@@ -185,9 +191,10 @@
             skill2Panel.Controls.Add(skill2RarityLabel);
             skill2Panel.Controls.Add(skill2DescLabel);
             skill2Panel.Controls.Add(skill2Label);
-            skill2Panel.Location = new Point(245, 64);
+            skill2Panel.Location = new Point(214, 48);
+            skill2Panel.Margin = new Padding(3, 2, 3, 2);
             skill2Panel.Name = "skill2Panel";
-            skill2Panel.Size = new Size(156, 162);
+            skill2Panel.Size = new Size(136, 122);
             skill2Panel.TabIndex = 11;
             skill2Panel.Click += skill2Panel_Click;
             skill2Panel.MouseEnter += skill2Panel_MouseEnter;
@@ -196,9 +203,9 @@
             // skill2RarityLabel
             // 
             skill2RarityLabel.AutoSize = true;
-            skill2RarityLabel.Location = new Point(36, 105);
+            skill2RarityLabel.Location = new Point(32, 79);
             skill2RarityLabel.Name = "skill2RarityLabel";
-            skill2RarityLabel.Size = new Size(50, 20);
+            skill2RarityLabel.Size = new Size(38, 15);
             skill2RarityLabel.TabIndex = 7;
             skill2RarityLabel.Text = "label7";
             skill2RarityLabel.MouseEnter += skill2Panel_MouseEnter;
@@ -207,9 +214,9 @@
             // skill2DescLabel
             // 
             skill2DescLabel.AutoSize = true;
-            skill2DescLabel.Location = new Point(36, 63);
+            skill2DescLabel.Location = new Point(32, 47);
             skill2DescLabel.Name = "skill2DescLabel";
-            skill2DescLabel.Size = new Size(50, 20);
+            skill2DescLabel.Size = new Size(38, 15);
             skill2DescLabel.TabIndex = 6;
             skill2DescLabel.Text = "label6";
             skill2DescLabel.MouseEnter += skill2Panel_MouseEnter;
@@ -218,9 +225,9 @@
             // skill2Label
             // 
             skill2Label.AutoSize = true;
-            skill2Label.Location = new Point(36, 17);
+            skill2Label.Location = new Point(32, 13);
             skill2Label.Name = "skill2Label";
-            skill2Label.Size = new Size(50, 20);
+            skill2Label.Size = new Size(38, 15);
             skill2Label.TabIndex = 2;
             skill2Label.Text = "label2";
             skill2Label.MouseEnter += skill2Panel_MouseEnter;
@@ -231,9 +238,10 @@
             skill3Panel.Controls.Add(skill3RarityLabel);
             skill3Panel.Controls.Add(skill3Label);
             skill3Panel.Controls.Add(skill3DescLabel);
-            skill3Panel.Location = new Point(455, 64);
+            skill3Panel.Location = new Point(398, 48);
+            skill3Panel.Margin = new Padding(3, 2, 3, 2);
             skill3Panel.Name = "skill3Panel";
-            skill3Panel.Size = new Size(162, 162);
+            skill3Panel.Size = new Size(142, 122);
             skill3Panel.TabIndex = 12;
             skill3Panel.Click += skill3Panel_Click;
             skill3Panel.MouseEnter += skill3Panel_MouseEnter;
@@ -242,9 +250,9 @@
             // skill3RarityLabel
             // 
             skill3RarityLabel.AutoSize = true;
-            skill3RarityLabel.Location = new Point(42, 105);
+            skill3RarityLabel.Location = new Point(37, 79);
             skill3RarityLabel.Name = "skill3RarityLabel";
-            skill3RarityLabel.Size = new Size(50, 20);
+            skill3RarityLabel.Size = new Size(38, 15);
             skill3RarityLabel.TabIndex = 9;
             skill3RarityLabel.Text = "label9";
             skill3RarityLabel.MouseEnter += skill3Panel_MouseEnter;
@@ -253,9 +261,9 @@
             // skill3Label
             // 
             skill3Label.AutoSize = true;
-            skill3Label.Location = new Point(42, 17);
+            skill3Label.Location = new Point(37, 13);
             skill3Label.Name = "skill3Label";
-            skill3Label.Size = new Size(50, 20);
+            skill3Label.Size = new Size(38, 15);
             skill3Label.TabIndex = 3;
             skill3Label.Text = "label3";
             skill3Label.MouseEnter += skill3Panel_MouseEnter;
@@ -264,9 +272,9 @@
             // skill3DescLabel
             // 
             skill3DescLabel.AutoSize = true;
-            skill3DescLabel.Location = new Point(42, 63);
+            skill3DescLabel.Location = new Point(37, 47);
             skill3DescLabel.Name = "skill3DescLabel";
-            skill3DescLabel.Size = new Size(50, 20);
+            skill3DescLabel.Size = new Size(38, 15);
             skill3DescLabel.TabIndex = 8;
             skill3DescLabel.Text = "label8";
             skill3DescLabel.MouseEnter += skill3Panel_MouseEnter;
@@ -274,9 +282,10 @@
             // 
             // rerollButton
             // 
-            rerollButton.Location = new Point(233, 254);
+            rerollButton.Location = new Point(204, 190);
+            rerollButton.Margin = new Padding(3, 2, 3, 2);
             rerollButton.Name = "rerollButton";
-            rerollButton.Size = new Size(152, 29);
+            rerollButton.Size = new Size(133, 22);
             rerollButton.TabIndex = 0;
             rerollButton.Text = "rerollbutton";
             rerollButton.UseVisualStyleBackColor = true;
@@ -287,28 +296,31 @@
             tabPage2.Controls.Add(gachaResultPictureBox);
             tabPage2.Controls.Add(gachaPictureBox);
             tabPage2.Controls.Add(gachaButton);
-            tabPage2.Location = new Point(4, 29);
+            tabPage2.Location = new Point(4, 24);
+            tabPage2.Margin = new Padding(3, 2, 3, 2);
             tabPage2.Name = "tabPage2";
-            tabPage2.Padding = new Padding(3);
-            tabPage2.Size = new Size(658, 351);
+            tabPage2.Padding = new Padding(3, 2, 3, 2);
+            tabPage2.Size = new Size(575, 260);
             tabPage2.TabIndex = 1;
             tabPage2.Text = "ガチャガチャ";
             tabPage2.UseVisualStyleBackColor = true;
             // 
             // gachaResultPictureBox
             // 
-            gachaResultPictureBox.Location = new Point(277, 98);
+            gachaResultPictureBox.Location = new Point(242, 74);
+            gachaResultPictureBox.Margin = new Padding(3, 2, 3, 2);
             gachaResultPictureBox.Name = "gachaResultPictureBox";
-            gachaResultPictureBox.Size = new Size(111, 106);
+            gachaResultPictureBox.Size = new Size(97, 80);
             gachaResultPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             gachaResultPictureBox.TabIndex = 2;
             gachaResultPictureBox.TabStop = false;
             // 
             // gachaButton
             // 
-            gachaButton.Location = new Point(104, 243);
+            gachaButton.Location = new Point(91, 182);
+            gachaButton.Margin = new Padding(3, 2, 3, 2);
             gachaButton.Name = "gachaButton";
-            gachaButton.Size = new Size(94, 29);
+            gachaButton.Size = new Size(82, 22);
             gachaButton.TabIndex = 0;
             gachaButton.Text = "button1";
             gachaButton.UseVisualStyleBackColor = true;
@@ -333,109 +345,121 @@
             tabPage3.Controls.Add(leftBottom1PictureBox);
             tabPage3.Controls.Add(leftTop1PictureBox);
             tabPage3.Controls.Add(leftCenterPictureBox);
-            tabPage3.Location = new Point(4, 29);
+            tabPage3.Location = new Point(4, 24);
+            tabPage3.Margin = new Padding(3, 2, 3, 2);
             tabPage3.Name = "tabPage3";
-            tabPage3.Padding = new Padding(3);
-            tabPage3.Size = new Size(658, 351);
+            tabPage3.Padding = new Padding(3, 2, 3, 2);
+            tabPage3.Size = new Size(575, 260);
             tabPage3.TabIndex = 2;
             tabPage3.Text = "スロット";
             tabPage3.UseVisualStyleBackColor = true;
             // 
             // rightBottom2PictureBox
             // 
-            rightBottom2PictureBox.Location = new Point(486, 272);
+            rightBottom2PictureBox.Location = new Point(425, 204);
+            rightBottom2PictureBox.Margin = new Padding(3, 2, 3, 2);
             rightBottom2PictureBox.Name = "rightBottom2PictureBox";
-            rightBottom2PictureBox.Size = new Size(43, 30);
+            rightBottom2PictureBox.Size = new Size(38, 22);
             rightBottom2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             rightBottom2PictureBox.TabIndex = 18;
             rightBottom2PictureBox.TabStop = false;
             // 
             // rightTop2PictureBox
             // 
-            rightTop2PictureBox.Location = new Point(484, 49);
+            rightTop2PictureBox.Location = new Point(424, 37);
+            rightTop2PictureBox.Margin = new Padding(3, 2, 3, 2);
             rightTop2PictureBox.Name = "rightTop2PictureBox";
-            rightTop2PictureBox.Size = new Size(45, 31);
+            rightTop2PictureBox.Size = new Size(39, 23);
             rightTop2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             rightTop2PictureBox.TabIndex = 17;
             rightTop2PictureBox.TabStop = false;
             // 
             // rightBottom1PictureBox
             // 
-            rightBottom1PictureBox.Location = new Point(472, 221);
+            rightBottom1PictureBox.Location = new Point(413, 166);
+            rightBottom1PictureBox.Margin = new Padding(3, 2, 3, 2);
             rightBottom1PictureBox.Name = "rightBottom1PictureBox";
-            rightBottom1PictureBox.Size = new Size(70, 45);
+            rightBottom1PictureBox.Size = new Size(61, 34);
             rightBottom1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             rightBottom1PictureBox.TabIndex = 16;
             rightBottom1PictureBox.TabStop = false;
             // 
             // rightTop1PictureBox
             // 
-            rightTop1PictureBox.Location = new Point(472, 86);
+            rightTop1PictureBox.Location = new Point(413, 64);
+            rightTop1PictureBox.Margin = new Padding(3, 2, 3, 2);
             rightTop1PictureBox.Name = "rightTop1PictureBox";
-            rightTop1PictureBox.Size = new Size(70, 51);
+            rightTop1PictureBox.Size = new Size(61, 38);
             rightTop1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             rightTop1PictureBox.TabIndex = 15;
             rightTop1PictureBox.TabStop = false;
             // 
             // rightCenterPictureBox
             // 
-            rightCenterPictureBox.Location = new Point(443, 143);
+            rightCenterPictureBox.Location = new Point(388, 107);
+            rightCenterPictureBox.Margin = new Padding(3, 2, 3, 2);
             rightCenterPictureBox.Name = "rightCenterPictureBox";
-            rightCenterPictureBox.Size = new Size(134, 72);
+            rightCenterPictureBox.Size = new Size(117, 54);
             rightCenterPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             rightCenterPictureBox.TabIndex = 14;
             rightCenterPictureBox.TabStop = false;
             // 
             // centerBottom2PictureBox
             // 
-            centerBottom2PictureBox.Location = new Point(305, 272);
+            centerBottom2PictureBox.Location = new Point(267, 204);
+            centerBottom2PictureBox.Margin = new Padding(3, 2, 3, 2);
             centerBottom2PictureBox.Name = "centerBottom2PictureBox";
-            centerBottom2PictureBox.Size = new Size(43, 30);
+            centerBottom2PictureBox.Size = new Size(38, 22);
             centerBottom2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             centerBottom2PictureBox.TabIndex = 13;
             centerBottom2PictureBox.TabStop = false;
             // 
             // centerTop2PictureBox
             // 
-            centerTop2PictureBox.Location = new Point(303, 49);
+            centerTop2PictureBox.Location = new Point(265, 37);
+            centerTop2PictureBox.Margin = new Padding(3, 2, 3, 2);
             centerTop2PictureBox.Name = "centerTop2PictureBox";
-            centerTop2PictureBox.Size = new Size(45, 31);
+            centerTop2PictureBox.Size = new Size(39, 23);
             centerTop2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             centerTop2PictureBox.TabIndex = 12;
             centerTop2PictureBox.TabStop = false;
             // 
             // centerBottom1PictureBox
             // 
-            centerBottom1PictureBox.Location = new Point(291, 221);
+            centerBottom1PictureBox.Location = new Point(255, 166);
+            centerBottom1PictureBox.Margin = new Padding(3, 2, 3, 2);
             centerBottom1PictureBox.Name = "centerBottom1PictureBox";
-            centerBottom1PictureBox.Size = new Size(70, 45);
+            centerBottom1PictureBox.Size = new Size(61, 34);
             centerBottom1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             centerBottom1PictureBox.TabIndex = 11;
             centerBottom1PictureBox.TabStop = false;
             // 
             // centerTop1PictureBox
             // 
-            centerTop1PictureBox.Location = new Point(291, 86);
+            centerTop1PictureBox.Location = new Point(255, 64);
+            centerTop1PictureBox.Margin = new Padding(3, 2, 3, 2);
             centerTop1PictureBox.Name = "centerTop1PictureBox";
-            centerTop1PictureBox.Size = new Size(70, 51);
+            centerTop1PictureBox.Size = new Size(61, 38);
             centerTop1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             centerTop1PictureBox.TabIndex = 10;
             centerTop1PictureBox.TabStop = false;
             // 
             // centerCenterPictureBox
             // 
-            centerCenterPictureBox.Location = new Point(260, 143);
+            centerCenterPictureBox.Location = new Point(228, 107);
+            centerCenterPictureBox.Margin = new Padding(3, 2, 3, 2);
             centerCenterPictureBox.Name = "centerCenterPictureBox";
-            centerCenterPictureBox.Size = new Size(134, 72);
+            centerCenterPictureBox.Size = new Size(117, 54);
             centerCenterPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             centerCenterPictureBox.TabIndex = 9;
             centerCenterPictureBox.TabStop = false;
             // 
             // slotStopButton
             // 
-            slotStopButton.Location = new Point(370, 301);
+            slotStopButton.Location = new Point(324, 226);
+            slotStopButton.Margin = new Padding(3, 2, 3, 2);
             slotStopButton.Name = "slotStopButton";
-            slotStopButton.Size = new Size(94, 29);
+            slotStopButton.Size = new Size(82, 22);
             slotStopButton.TabIndex = 8;
             slotStopButton.Text = "button1";
             slotStopButton.UseVisualStyleBackColor = true;
@@ -443,9 +467,10 @@
             // 
             // slotStartButton
             // 
-            slotStartButton.Location = new Point(192, 301);
+            slotStartButton.Location = new Point(168, 226);
+            slotStartButton.Margin = new Padding(3, 2, 3, 2);
             slotStartButton.Name = "slotStartButton";
-            slotStartButton.Size = new Size(94, 29);
+            slotStartButton.Size = new Size(82, 22);
             slotStartButton.TabIndex = 5;
             slotStartButton.Text = "button1";
             slotStartButton.UseVisualStyleBackColor = true;
@@ -453,45 +478,50 @@
             // 
             // leftBottom2PictureBox
             // 
-            leftBottom2PictureBox.Location = new Point(138, 272);
+            leftBottom2PictureBox.Location = new Point(121, 204);
+            leftBottom2PictureBox.Margin = new Padding(3, 2, 3, 2);
             leftBottom2PictureBox.Name = "leftBottom2PictureBox";
-            leftBottom2PictureBox.Size = new Size(43, 30);
+            leftBottom2PictureBox.Size = new Size(38, 22);
             leftBottom2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             leftBottom2PictureBox.TabIndex = 4;
             leftBottom2PictureBox.TabStop = false;
             // 
             // leftTop2PictureBox
             // 
-            leftTop2PictureBox.Location = new Point(138, 49);
+            leftTop2PictureBox.Location = new Point(121, 37);
+            leftTop2PictureBox.Margin = new Padding(3, 2, 3, 2);
             leftTop2PictureBox.Name = "leftTop2PictureBox";
-            leftTop2PictureBox.Size = new Size(45, 31);
+            leftTop2PictureBox.Size = new Size(39, 23);
             leftTop2PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             leftTop2PictureBox.TabIndex = 3;
             leftTop2PictureBox.TabStop = false;
             // 
             // leftBottom1PictureBox
             // 
-            leftBottom1PictureBox.Location = new Point(126, 221);
+            leftBottom1PictureBox.Location = new Point(110, 166);
+            leftBottom1PictureBox.Margin = new Padding(3, 2, 3, 2);
             leftBottom1PictureBox.Name = "leftBottom1PictureBox";
-            leftBottom1PictureBox.Size = new Size(70, 45);
+            leftBottom1PictureBox.Size = new Size(61, 34);
             leftBottom1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             leftBottom1PictureBox.TabIndex = 2;
             leftBottom1PictureBox.TabStop = false;
             // 
             // leftTop1PictureBox
             // 
-            leftTop1PictureBox.Location = new Point(126, 86);
+            leftTop1PictureBox.Location = new Point(110, 64);
+            leftTop1PictureBox.Margin = new Padding(3, 2, 3, 2);
             leftTop1PictureBox.Name = "leftTop1PictureBox";
-            leftTop1PictureBox.Size = new Size(70, 51);
+            leftTop1PictureBox.Size = new Size(61, 38);
             leftTop1PictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             leftTop1PictureBox.TabIndex = 1;
             leftTop1PictureBox.TabStop = false;
             // 
             // leftCenterPictureBox
             // 
-            leftCenterPictureBox.Location = new Point(89, 143);
+            leftCenterPictureBox.Location = new Point(78, 107);
+            leftCenterPictureBox.Margin = new Padding(3, 2, 3, 2);
             leftCenterPictureBox.Name = "leftCenterPictureBox";
-            leftCenterPictureBox.Size = new Size(134, 72);
+            leftCenterPictureBox.Size = new Size(117, 54);
             leftCenterPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             leftCenterPictureBox.TabIndex = 0;
             leftCenterPictureBox.TabStop = false;
@@ -523,12 +553,23 @@
             // 
             printDialog1.UseEXDialog = true;
             // 
+            // gameTabPage
+            // 
+            gameTabPage.Location = new Point(4, 24);
+            gameTabPage.Name = "gameTabPage";
+            gameTabPage.Padding = new Padding(3);
+            gameTabPage.Size = new Size(575, 260);
+            gameTabPage.TabIndex = 3;
+            gameTabPage.Text = "tabPage4";
+            gameTabPage.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(713, 439);
+            ClientSize = new Size(624, 329);
             Controls.Add(tabControl1);
+            Margin = new Padding(3, 2, 3, 2);
             Name = "Form1";
             Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)gachaPictureBox).EndInit();
@@ -608,5 +649,6 @@
         private System.Windows.Forms.Timer rightTimer;
         private ColorDialog colorDialog2;
         private PrintDialog printDialog1;
+        private TabPage gameTabPage;
     }
 }
