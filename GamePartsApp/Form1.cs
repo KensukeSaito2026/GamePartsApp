@@ -218,9 +218,10 @@ namespace GamePartsApp
                 if (distance < currentTarget.Radius + player.Radius)
                 {
                     player.TakeDamage(1);  // 接触しているだけで、少しずつダメージ（簡易版）
-                                           // ------------------------------------------------------------
-                                           // ★追加：プレイヤーを、敵から押し出す
-                                           // ------------------------------------------------------------
+                    player.ApplyStun();  // ★追加：ダメージを受けたら、スタンする
+                                         // ------------------------------------------------------------
+                                         // ★追加：プレイヤーを、敵から押し出す
+                                         // ------------------------------------------------------------
                     float pushDx = player.X - currentTarget.X;
                     float pushDy = player.Y - currentTarget.Y;
                     float pushLength = (float)Math.Sqrt(pushDx * pushDx + pushDy * pushDy);
@@ -255,11 +256,9 @@ namespace GamePartsApp
         {
             if (player == null) return;
 
-            // プレイヤーを、青い円で描く
-            using (SolidBrush playerBrush = new SolidBrush(player.IsInvincible ? Color.LightBlue : Color.Blue))
-            {
-                e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
-            }
+            // ------------------------------------------------------------
+            // ① 回転処理を先に準備する（Saveから）
+            // ------------------------------------------------------------
             var state = e.Graphics.Save();  // 今の描画状態を、いったん保存しておく
 
             if (player.IsInvincible)
@@ -270,13 +269,25 @@ namespace GamePartsApp
                 e.Graphics.TranslateTransform(-player.X, -player.Y);
             }
 
-            using (SolidBrush playerBrush = new SolidBrush(player.IsInvincible ? Color.LightBlue : Color.Blue))
+            // ------------------------------------------------------------
+            // ② プレイヤーの色を決める（無敵 > スタン > 通常、の優先順位）
+            // ------------------------------------------------------------
+            // if-elseなので、上から順番にチェックされる。
+            // 無敵中はライトブルー、それ以外でスタン中はオレンジ、
+            // どちらでもなければ通常の青、という優先順位になる。
+            Color playerColor;
+            if (player.IsInvincible) playerColor = Color.LightBlue;
+            else if (player.IsStunned) playerColor = Color.Orange;
+            else playerColor = Color.Blue;
+
+            // ------------------------------------------------------------
+            // ③ プレイヤーを、1回だけ描く（回転・色分けが反映された状態で）
+            // ------------------------------------------------------------
+            using (SolidBrush playerBrush = new SolidBrush(playerColor))
             {
                 e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
 
-                // ------------------------------------------------------------
                 // 回転が見えるように、円の中に「向き」の線を描く
-                // ------------------------------------------------------------
                 using (Pen linePen = new Pen(Color.White, 3))
                 {
                     e.Graphics.DrawLine(linePen, player.X, player.Y, player.X + player.Radius, player.Y);
@@ -284,13 +295,12 @@ namespace GamePartsApp
             }
 
             // ------------------------------------------------------------
-            // 回転させた座標系を、元に戻す
+            // ④ 回転させた座標系を、元に戻す
             // ------------------------------------------------------------
             e.Graphics.Restore(state);
 
-
             // ------------------------------------------------------------
-            // 現在戦っている敵を、赤い円で描く（HPバーも一緒に）
+            // ⑤ 現在戦っている敵を、赤い円で描く（HPバーも一緒に）
             // ------------------------------------------------------------
             if (currentTarget != null && currentTarget.IsAlive)
             {
@@ -299,9 +309,7 @@ namespace GamePartsApp
                     e.Graphics.FillEllipse(enemyBrush, currentTarget.X - currentTarget.Radius, currentTarget.Y - currentTarget.Radius, currentTarget.Radius * 2, currentTarget.Radius * 2);
                 }
 
-                // ------------------------------------------------------------
                 // 敵のHPバー（上に表示）
-                // ------------------------------------------------------------
                 float hpBarWidth = 60f;
                 float hpRatio = (float)currentTarget.HP / currentTarget.MaxHP;
                 e.Graphics.FillRectangle(Brushes.Gray, currentTarget.X - hpBarWidth / 2, currentTarget.Y - currentTarget.Radius - 15, hpBarWidth, 6);
@@ -309,16 +317,15 @@ namespace GamePartsApp
             }
 
             // ------------------------------------------------------------
-            // プレイヤーのHPバー（画面左上に固定表示）
+            // ⑥ プレイヤーのHPバー（画面左上に固定表示）
             // ------------------------------------------------------------
             float playerHpRatio = (float)player.HP / 100;
             e.Graphics.FillRectangle(Brushes.Gray, 10, 10, 150, 20);
             e.Graphics.FillRectangle(Brushes.Lime, 10, 10, 150 * playerHpRatio, 20);
             e.Graphics.DrawString($"HP: {player.HP}/100", this.Font, Brushes.White, 15, 11);
-            // gameTabPage_Paint の、プレイヤー描画の後に追加
 
             // ------------------------------------------------------------
-            // ★追加：マウス方向（攻撃方向）を示す線
+            // ⑦ マウス方向（攻撃方向）を示す線
             // ------------------------------------------------------------
             float dirDx = mouseX - player.X;
             float dirDy = mouseY - player.Y;
@@ -326,7 +333,6 @@ namespace GamePartsApp
 
             if (dirLength > 0)
             {
-                // 方向を正規化して、一定の長さ（40px）の線にする
                 float lineEndX = player.X + (dirDx / dirLength) * 40f;
                 float lineEndY = player.Y + (dirDy / dirLength) * 40f;
 
@@ -335,10 +341,8 @@ namespace GamePartsApp
                     e.Graphics.DrawLine(aimPen, player.X, player.Y, lineEndX, lineEndY);
                 }
             }
-
         }
 
-    
         // ====================================================================
         // フィールド①：スキル選択関連
         // ====================================================================

@@ -44,6 +44,11 @@ namespace GamePartsApp
         // ------------------------------------------------------------
         public void Move(float dx, float dy, float speed)
         {
+
+            // ------------------------------------------------------------
+            // ★追加：スタン中は、移動を受け付けない
+            // ------------------------------------------------------------
+            if (IsStunned) return;
             X += dx * speed;
             Y += dy * speed;
         }
@@ -62,6 +67,18 @@ namespace GamePartsApp
             invincibleFramesLeft = DODGE_DURATION;
             cooldownFramesLeft = DODGE_COOLDOWN;
             DodgeRotation = 0f;  // 回転をリセット
+        }
+        public bool IsStunned { get; private set; } = false;
+        private int stunFramesLeft = 0;
+        private const int STUN_DURATION = 30;  // 約0.5秒、動けなくなる
+
+        // ------------------------------------------------------------
+        // スタンさせる（外部から呼ばれる）
+        // ------------------------------------------------------------
+        public void ApplyStun()
+        {
+            IsStunned = true;
+            stunFramesLeft = STUN_DURATION;
         }
 
         // ------------------------------------------------------------
@@ -89,6 +106,17 @@ namespace GamePartsApp
             {
                 cooldownFramesLeft--;
             }
+            // ------------------------------------------------------------
+            // ★追加：スタンのカウントダウン
+            // ------------------------------------------------------------
+            if (stunFramesLeft > 0)
+            {
+                stunFramesLeft--;
+                if (stunFramesLeft == 0)
+                {
+                    IsStunned = false;
+                }
+            }
         }
 
         // ------------------------------------------------------------
@@ -103,5 +131,6 @@ namespace GamePartsApp
 
 
         public bool IsAlive => HP > 0;
+
     }
 }
