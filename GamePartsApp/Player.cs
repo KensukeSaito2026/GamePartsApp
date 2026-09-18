@@ -51,6 +51,8 @@ namespace GamePartsApp
         // ------------------------------------------------------------
         // 回避：Eキーが押されたときに呼ぶ
         // ------------------------------------------------------------
+        // Player.cs に追加
+        public float DodgeRotation { get; private set; } = 0f;
         public void Dodge()
         {
             // クールダウン中は、回避できないようにする
@@ -59,6 +61,7 @@ namespace GamePartsApp
             IsInvincible = true;
             invincibleFramesLeft = DODGE_DURATION;
             cooldownFramesLeft = DODGE_COOLDOWN;
+            DodgeRotation = 0f;  // 回転をリセット
         }
 
         // ------------------------------------------------------------
@@ -70,6 +73,11 @@ namespace GamePartsApp
             if (invincibleFramesLeft > 0)
             {
                 invincibleFramesLeft--;
+                // ------------------------------------------------------------
+                // ★追加：無敵中は、回転角度を進める
+                // ------------------------------------------------------------
+                // DODGE_DURATION（15フレーム）で、ちょうど360度回るように計算
+                DodgeRotation += 360f / DODGE_DURATION;
                 if (invincibleFramesLeft == 0)
                 {
                     IsInvincible = false;
@@ -92,6 +100,7 @@ namespace GamePartsApp
 
             HP = Math.Max(HP - damage, 0);
         }
+
 
         public bool IsAlive => HP > 0;
     }

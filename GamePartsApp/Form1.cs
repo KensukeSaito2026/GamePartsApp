@@ -40,6 +40,18 @@ namespace GamePartsApp
         // キー入力の状態を覚えておくフィールド
         // ------------------------------------------------------------
         private bool isWPressed, isAPressed, isSPressed, isDPressed;
+        // フィールドに追加
+        private int mouseX, mouseY;
+
+        // ------------------------------------------------------------
+        // マウスが動いたときのイベント
+        // ------------------------------------------------------------
+        private void gameTabPage_MouseMove(object sender, MouseEventArgs e)
+        {
+            mouseX = e.X;
+            mouseY = e.Y;
+            gameTabPage.Invalidate();  // 向きが変わるので、再描画
+        }
 
         // ------------------------------------------------------------
         // ゲームスタートボタン
@@ -147,6 +159,7 @@ namespace GamePartsApp
         // ------------------------------------------------------------
         private void OnEnemyDefeated()
         {
+            if (stageIndex >= 3) return;  // すでにボスを倒していたら何もしない
             stageIndex++;
 
             if (stageIndex == 1)
@@ -183,7 +196,11 @@ namespace GamePartsApp
             if (isDPressed) dx += 1;
 
             player.Move(dx, dy, 4f);
+
             player.UpdateFrame();
+            // gameTimer_Tick の中、Move の後に追加
+            player.X = Math.Clamp(player.X, player.Radius, gameTabPage.Width - player.Radius);
+            player.Y = Math.Clamp(player.Y, player.Radius, gameTabPage.Height - player.Radius);
 
             // ------------------------------------------------------------
             // 敵の更新（現在の対象だけ）
@@ -201,9 +218,23 @@ namespace GamePartsApp
                 if (distance < currentTarget.Radius + player.Radius)
                 {
                     player.TakeDamage(1);  // 接触しているだけで、少しずつダメージ（簡易版）
+                                           // ------------------------------------------------------------
+                                           // ★追加：プレイヤーを、敵から押し出す
+                                           // ------------------------------------------------------------
+                    float pushDx = player.X - currentTarget.X;
+                    float pushDy = player.Y - currentTarget.Y;
+                    float pushLength = (float)Math.Sqrt(pushDx * pushDx + pushDy * pushDy);
+
+                    if (pushLength > 0)
+                    {
+                        float minDistance = currentTarget.Radius + player.Radius;
+                        player.X = currentTarget.X + (pushDx / pushLength) * minDistance;
+                        player.Y = currentTarget.Y + (pushDy / pushLength) * minDistance;
+                    }
 
                     if (!player.IsAlive)
                     {
+                        
                         MessageBox.Show("敗北...");
                         gameTimer.Stop();
                         gameStartButton.Enabled = true;
@@ -229,6 +260,34 @@ namespace GamePartsApp
             {
                 e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
             }
+            var state = e.Graphics.Save();  // 今の描画状態を、いったん保存しておく
+
+            if (player.IsInvincible)
+            {
+                // プレイヤーの中心を基準に、回転させる
+                e.Graphics.TranslateTransform(player.X, player.Y);
+                e.Graphics.RotateTransform(player.DodgeRotation);
+                e.Graphics.TranslateTransform(-player.X, -player.Y);
+            }
+
+            using (SolidBrush playerBrush = new SolidBrush(player.IsInvincible ? Color.LightBlue : Color.Blue))
+            {
+                e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
+
+                // ------------------------------------------------------------
+                // 回転が見えるように、円の中に「向き」の線を描く
+                // ------------------------------------------------------------
+                using (Pen linePen = new Pen(Color.White, 3))
+                {
+                    e.Graphics.DrawLine(linePen, player.X, player.Y, player.X + player.Radius, player.Y);
+                }
+            }
+
+            // ------------------------------------------------------------
+            // 回転させた座標系を、元に戻す
+            // ------------------------------------------------------------
+            e.Graphics.Restore(state);
+
 
             // ------------------------------------------------------------
             // 現在戦っている敵を、赤い円で描く（HPバーも一緒に）
@@ -256,8 +315,29 @@ namespace GamePartsApp
             e.Graphics.FillRectangle(Brushes.Gray, 10, 10, 150, 20);
             e.Graphics.FillRectangle(Brushes.Lime, 10, 10, 150 * playerHpRatio, 20);
             e.Graphics.DrawString($"HP: {player.HP}/100", this.Font, Brushes.White, 15, 11);
-        
+            // gameTabPage_Paint の、プレイヤー描画の後に追加
+
+            // ------------------------------------------------------------
+            // ★追加：マウス方向（攻撃方向）を示す線
+            // ------------------------------------------------------------
+            float dirDx = mouseX - player.X;
+            float dirDy = mouseY - player.Y;
+            float dirLength = (float)Math.Sqrt(dirDx * dirDx + dirDy * dirDy);
+
+            if (dirLength > 0)
+            {
+                // 方向を正規化して、一定の長さ（40px）の線にする
+                float lineEndX = player.X + (dirDx / dirLength) * 40f;
+                float lineEndY = player.Y + (dirDy / dirLength) * 40f;
+
+                using (Pen aimPen = new Pen(Color.Yellow, 3))
+                {
+                    e.Graphics.DrawLine(aimPen, player.X, player.Y, lineEndX, lineEndY);
+                }
+            }
+
         }
+
     
         // ====================================================================
         // フィールド①：スキル選択関連

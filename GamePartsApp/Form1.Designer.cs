@@ -514,6 +514,7 @@
             gameTabPage.UseVisualStyleBackColor = true;
             gameTabPage.Paint += gameTabPage_Paint;
             gameTabPage.MouseDown += gameTabPage_MouseDown;
+            gameTabPage.MouseMove += gameTabPage_MouseMove;
             // 
             // gameStartButton
             // 
