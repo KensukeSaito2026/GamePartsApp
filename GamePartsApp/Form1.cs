@@ -20,6 +20,245 @@ namespace GamePartsApp
     // このForm1.csは「何が起きているか」を追いやすい構成になっている。
     public partial class Form1 : Form
     {
+        // ... 既存のフィールド（skillSelector, gachaManagerなど）はそのまま ...
+
+        // ====================================================================
+        // ★アクションゲーム関連：新規フィールド
+        // ====================================================================
+        private Player player;
+        private WeakEnemy1 enemy1;
+        private WeakEnemy2 enemy2;
+        private Boss boss;
+
+        // 今、戦っている相手（1体ずつ戦う、ソウルライク仕様）
+        private Enemy currentTarget;
+
+        // どのステージか（0=雑魚1, 1=雑魚2, 2=ボス）
+        private int stageIndex = 0;
+
+        // ------------------------------------------------------------
+        // キー入力の状態を覚えておくフィールド
+        // ------------------------------------------------------------
+        private bool isWPressed, isAPressed, isSPressed, isDPressed;
+
+        // ------------------------------------------------------------
+        // ゲームスタートボタン
+        // ------------------------------------------------------------
+        private void gameStartButton_Click(object sender, EventArgs e)
+        {
+            // ------------------------------------------------------------
+            // プレイヤーと、最初の敵（雑魚1）を作る
+            // ------------------------------------------------------------
+            player = new Player(200, 200);
+            enemy1 = new WeakEnemy1(500, 200);
+            enemy2 = new WeakEnemy2(500, 200);
+            boss = new Boss(500, 200);
+
+            stageIndex = 0;
+            currentTarget = enemy1;  // まず雑魚1と戦う
+
+            // ------------------------------------------------------------
+            // フォームが、キー入力を受け取れるようにする
+            // ------------------------------------------------------------
+            this.KeyPreview = true;
+
+            gameTimer.Start();
+            gameStartButton.Enabled = false;
+        }
+
+        // ------------------------------------------------------------
+        // キーが押されたとき
+        // ------------------------------------------------------------
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.W) isWPressed = true;
+            if (e.KeyCode == Keys.A) isAPressed = true;
+            if (e.KeyCode == Keys.S) isSPressed = true;
+            if (e.KeyCode == Keys.D) isDPressed = true;
+
+            if (e.KeyCode == Keys.E && player != null)
+            {
+                player.Dodge();
+            }
+        }
+
+        // ------------------------------------------------------------
+        // キーが離されたとき
+        // ------------------------------------------------------------
+        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.W) isWPressed = false;
+            if (e.KeyCode == Keys.A) isAPressed = false;
+            if (e.KeyCode == Keys.S) isSPressed = false;
+            if (e.KeyCode == Keys.D) isDPressed = false;
+        }
+
+
+        // ------------------------------------------------------------
+        // gameTabPage の MouseDown（右クリックで攻撃）
+        // ------------------------------------------------------------
+        private void gameTabPage_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (player == null || currentTarget == null) return;
+
+            if (e.Button == MouseButtons.Right)
+            {
+                // ------------------------------------------------------------
+                // 円形の攻撃判定：プレイヤーと敵の距離をチェック
+                // ------------------------------------------------------------
+                float dx = player.X - currentTarget.X;
+                float dy = player.Y - currentTarget.Y;
+                float distance = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                float attackRange = 60f;  // 攻撃の届く範囲
+
+                // ------------------------------------------------------------
+                // 雑魚1なら、攻撃の"前に"回避を試みさせる（前回設計した仕様）
+                // ------------------------------------------------------------
+                if (currentTarget is WeakEnemy1 weakEnemy1)
+                {
+                    weakEnemy1.TryDodge(player.X, player.Y, attackRange);
+
+                    // 回避した後、もう一度距離を測り直す
+                    dx = player.X - currentTarget.X;
+                    dy = player.Y - currentTarget.Y;
+                    distance = (float)Math.Sqrt(dx * dx + dy * dy);
+                }
+
+                // ------------------------------------------------------------
+                // 攻撃範囲内なら、ダメージを与える
+                // ------------------------------------------------------------
+                if (distance <= attackRange)
+                {
+                    currentTarget.TakeDamage(player.AttackPower);
+
+                    if (!currentTarget.IsAlive)
+                    {
+                        OnEnemyDefeated();
+                    }
+                }
+
+                gameTabPage.Invalidate();
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 敵を倒したときの処理
+        // ------------------------------------------------------------
+        private void OnEnemyDefeated()
+        {
+            stageIndex++;
+
+            if (stageIndex == 1)
+            {
+                currentTarget = enemy2;
+                MessageBox.Show("雑魚1を倒した！次は雑魚2だ！");
+            }
+            else if (stageIndex == 2)
+            {
+                currentTarget = boss;
+                MessageBox.Show("雑魚2を倒した！ボスが現れた！");
+            }
+            else
+            {
+                MessageBox.Show("ボスを倒した！クリア！");
+                gameTimer.Stop();
+                gameStartButton.Enabled = true;
+            }
+        }
+        // ------------------------------------------------------------
+        // gameTimer_Tick：毎フレーム、状態を更新する
+        // ------------------------------------------------------------
+        private void gameTimer_Tick(object sender, EventArgs e)
+        {
+            if (player == null) return;
+
+            // ------------------------------------------------------------
+            // プレイヤーの移動
+            // ------------------------------------------------------------
+            float dx = 0, dy = 0;
+            if (isWPressed) dy -= 1;
+            if (isSPressed) dy += 1;
+            if (isAPressed) dx -= 1;
+            if (isDPressed) dx += 1;
+
+            player.Move(dx, dy, 4f);
+            player.UpdateFrame();
+
+            // ------------------------------------------------------------
+            // 敵の更新（現在の対象だけ）
+            // ------------------------------------------------------------
+            if (currentTarget != null && currentTarget.IsAlive)
+            {
+                currentTarget.UpdateFrame(player.X, player.Y);
+                // ------------------------------------------------------------
+                // ★追加：敵に近づきすぎたら、簡易的にダメージを受ける
+                // ------------------------------------------------------------
+                float dx2 = player.X - currentTarget.X;
+                float dy2 = player.Y - currentTarget.Y;
+                float distance = (float)Math.Sqrt(dx2 * dx2 + dy2 * dy2);
+
+                if (distance < currentTarget.Radius + player.Radius)
+                {
+                    player.TakeDamage(1);  // 接触しているだけで、少しずつダメージ（簡易版）
+
+                    if (!player.IsAlive)
+                    {
+                        MessageBox.Show("敗北...");
+                        gameTimer.Stop();
+                        gameStartButton.Enabled = true;
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------
+            // タブ4を、再描画する
+            // ------------------------------------------------------------
+            gameTabPage.Invalidate();
+        }
+
+        // ------------------------------------------------------------
+        // gameTabPage の描画処理（プレイヤーと敵を、円で描く）
+        // ------------------------------------------------------------
+        private void gameTabPage_Paint(object sender, PaintEventArgs e)
+        {
+            if (player == null) return;
+
+            // プレイヤーを、青い円で描く
+            using (SolidBrush playerBrush = new SolidBrush(player.IsInvincible ? Color.LightBlue : Color.Blue))
+            {
+                e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
+            }
+
+            // ------------------------------------------------------------
+            // 現在戦っている敵を、赤い円で描く（HPバーも一緒に）
+            // ------------------------------------------------------------
+            if (currentTarget != null && currentTarget.IsAlive)
+            {
+                using (SolidBrush enemyBrush = new SolidBrush(Color.Red))
+                {
+                    e.Graphics.FillEllipse(enemyBrush, currentTarget.X - currentTarget.Radius, currentTarget.Y - currentTarget.Radius, currentTarget.Radius * 2, currentTarget.Radius * 2);
+                }
+
+                // ------------------------------------------------------------
+                // 敵のHPバー（上に表示）
+                // ------------------------------------------------------------
+                float hpBarWidth = 60f;
+                float hpRatio = (float)currentTarget.HP / currentTarget.MaxHP;
+                e.Graphics.FillRectangle(Brushes.Gray, currentTarget.X - hpBarWidth / 2, currentTarget.Y - currentTarget.Radius - 15, hpBarWidth, 6);
+                e.Graphics.FillRectangle(Brushes.Lime, currentTarget.X - hpBarWidth / 2, currentTarget.Y - currentTarget.Radius - 15, hpBarWidth * hpRatio, 6);
+            }
+
+            // ------------------------------------------------------------
+            // プレイヤーのHPバー（画面左上に固定表示）
+            // ------------------------------------------------------------
+            float playerHpRatio = (float)player.HP / 100;
+            e.Graphics.FillRectangle(Brushes.Gray, 10, 10, 150, 20);
+            e.Graphics.FillRectangle(Brushes.Lime, 10, 10, 150 * playerHpRatio, 20);
+            e.Graphics.DrawString($"HP: {player.HP}/100", this.Font, Brushes.White, 15, 11);
+        
+        }
+    
         // ====================================================================
         // フィールド①：スキル選択関連
         // ====================================================================
