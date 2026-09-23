@@ -5,82 +5,80 @@ using System.Windows.Forms;
 
 namespace GamePartsApp
 {
-    // ====================================================================
-    // Form1：GamePartsAppのメイン画面（3つのタブを持つ「指揮者」役）
-    // ====================================================================
-    // このクラスの役割は、大きく分けて3つ：
-    //
-    // ① SkillSelector, GachaManager のような「専門クラス」を持ち、
-    //    それぞれのメソッドを呼び出す
-    // ② ボタンが押された、マウスが乗った、などの「イベント」を受け取る
-    // ③ ①で得た結果を、画面上のLabel・PictureBoxなどに反映する
-    //
-    // 複雑な計算（重み付き抽選、色マスク合成など）は、
-    // すべて専門クラス側に任せているため、
-    // このForm1.csは「何が起きているか」を追いやすい構成になっている。
     public partial class Form1 : Form
     {
-        // ... 既存のフィールド（skillSelector, gachaManagerなど）はそのまま ...
-
-        // ====================================================================
-        // ★アクションゲーム関連：新規フィールド
-        // ====================================================================
         private Player player;
         private WeakEnemy1 enemy1;
         private WeakEnemy2 enemy2;
-        private Boss boss;
 
-        // 今、戦っている相手（1体ずつ戦う、ソウルライク仕様）
+        // ------------------------------------------------------------
+        // 単独のBossではなく、分身2体を個別のフィールドで管理する
+        // ------------------------------------------------------------
+        private WeakEnemy1 bossClone1;
+        private WeakEnemy2 bossClone2;
+
         private Enemy currentTarget;
-
-        // どのステージか（0=雑魚1, 1=雑魚2, 2=ボス）
         private int stageIndex = 0;
 
-        // ------------------------------------------------------------
-        // キー入力の状態を覚えておくフィールド
-        // ------------------------------------------------------------
         private bool isWPressed, isAPressed, isSPressed, isDPressed;
-        // フィールドに追加
         private int mouseX, mouseY;
 
+        private int playerCoins = 0;
+
         // ------------------------------------------------------------
-        // マウスが動いたときのイベント
+        // コインアニメーション用フィールド
         // ------------------------------------------------------------
+        private List<Image> coinFrames = new List<Image>();
+        private int coinFrameIndex = 0;
+
+        private void UpdateCoinDisplays()
+        {
+            gachaCoinLabel.Text = $"所持コイン: {playerCoins}";
+            slotCoinLabel.Text = $"所持コイン: {playerCoins}";
+        }
+
         private void gameTabPage_MouseMove(object sender, MouseEventArgs e)
         {
             mouseX = e.X;
             mouseY = e.Y;
-            gameTabPage.Invalidate();  // 向きが変わるので、再描画
+            gameTabPage.Invalidate();
         }
 
-        // ------------------------------------------------------------
-        // ゲームスタートボタン
-        // ------------------------------------------------------------
         private void gameStartButton_Click(object sender, EventArgs e)
         {
-            // ------------------------------------------------------------
-            // プレイヤーと、最初の敵（雑魚1）を作る
-            // ------------------------------------------------------------
             player = new Player(200, 200);
             enemy1 = new WeakEnemy1(500, 200);
             enemy2 = new WeakEnemy2(500, 200);
-            boss = new Boss(500, 200);
+
+            // ------------------------------------------------------------
+            // ボスの分身2体を、少し強化したパラメータで作る
+            // ------------------------------------------------------------
+            bossClone1 = new WeakEnemy1(150, 180, maxHp: 150, attackPower: 25);
+            bossClone2 = new WeakEnemy2(650, 220, maxHp: 150, attackPower: 25);
+
+            bossClone1.ScreenWidth = gameTabPage.Width;
+            bossClone1.ScreenHeight = gameTabPage.Height;
+            bossClone2.ScreenWidth = gameTabPage.Width;
+            bossClone2.ScreenHeight = gameTabPage.Height;
+            enemy1.ScreenWidth = gameTabPage.Width;
+            enemy1.ScreenHeight = gameTabPage.Height;
+            enemy2.ScreenWidth = gameTabPage.Width;
+            enemy2.ScreenHeight = gameTabPage.Height;
 
             stageIndex = 0;
-            currentTarget = enemy1;  // まず雑魚1と戦う
+            currentTarget = enemy1;
 
-            // ------------------------------------------------------------
-            // フォームが、キー入力を受け取れるようにする
-            // ------------------------------------------------------------
+            isWPressed = false;
+            isAPressed = false;
+            isSPressed = false;
+            isDPressed = false;
+
             this.KeyPreview = true;
 
             gameTimer.Start();
             gameStartButton.Enabled = false;
         }
 
-        // ------------------------------------------------------------
-        // キーが押されたとき
-        // ------------------------------------------------------------
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.W) isWPressed = true;
@@ -94,101 +92,310 @@ namespace GamePartsApp
             }
         }
 
-        // ------------------------------------------------------------
-        // キーが離されたとき
-        // ------------------------------------------------------------
         private void Form1_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.W) isWPressed = false;
             if (e.KeyCode == Keys.A) isAPressed = false;
             if (e.KeyCode == Keys.S) isSPressed = false;
             if (e.KeyCode == Keys.D) isDPressed = false;
+
+            if (e.KeyCode == Keys.Q && player != null)
+            {
+                player.StartRangedAttack();
+            }
         }
 
-
-        // ------------------------------------------------------------
-        // gameTabPage の MouseDown（右クリックで攻撃）
-        // ------------------------------------------------------------
         private void gameTabPage_MouseDown(object sender, MouseEventArgs e)
         {
-            if (player == null || currentTarget == null) return;
+            if (player == null) return;
 
             if (e.Button == MouseButtons.Right)
             {
-                // ------------------------------------------------------------
-                // 円形の攻撃判定：プレイヤーと敵の距離をチェック
-                // ------------------------------------------------------------
-                float dx = player.X - currentTarget.X;
-                float dy = player.Y - currentTarget.Y;
-                float distance = (float)Math.Sqrt(dx * dx + dy * dy);
-
-                float attackRange = 60f;  // 攻撃の届く範囲
-
-                // ------------------------------------------------------------
-                // 雑魚1なら、攻撃の"前に"回避を試みさせる（前回設計した仕様）
-                // ------------------------------------------------------------
-                if (currentTarget is WeakEnemy1 weakEnemy1)
-                {
-                    weakEnemy1.TryDodge(player.X, player.Y, attackRange);
-
-                    // 回避した後、もう一度距離を測り直す
-                    dx = player.X - currentTarget.X;
-                    dy = player.Y - currentTarget.Y;
-                    distance = (float)Math.Sqrt(dx * dx + dy * dy);
-                }
-
-                // ------------------------------------------------------------
-                // 攻撃範囲内なら、ダメージを与える
-                // ------------------------------------------------------------
-                if (distance <= attackRange)
-                {
-                    currentTarget.TakeDamage(player.AttackPower);
-
-                    if (!currentTarget.IsAlive)
-                    {
-                        OnEnemyDefeated();
-                    }
-                }
-
-                gameTabPage.Invalidate();
+                player.StartMeleeAttack();
             }
         }
 
-        // ------------------------------------------------------------
-        // 敵を倒したときの処理
-        // ------------------------------------------------------------
         private void OnEnemyDefeated()
         {
-            if (stageIndex >= 3) return;  // すでにボスを倒していたら何もしない
-            stageIndex++;
-
-            if (stageIndex == 1)
+            if (stageIndex == 0)
             {
+                stageIndex = 1;
                 currentTarget = enemy2;
-                MessageBox.Show("雑魚1を倒した！次は雑魚2だ！");
+
+                playerCoins += 20;
+                UpdateCoinDisplays();
+                MessageBox.Show($"雑魚1を倒した！20コイン獲得！\n（所持コイン：{playerCoins}）");
+
+                gameTimer.Stop();
+                mainTabControl.SelectedTab = skillTabPage;
             }
-            else if (stageIndex == 2)
+            else if (stageIndex == 1)
             {
-                currentTarget = boss;
-                MessageBox.Show("雑魚2を倒した！ボスが現れた！");
+                stageIndex = 2;
+                currentTarget = null;
+
+                playerCoins += 30;
+                UpdateCoinDisplays();
+                MessageBox.Show($"雑魚2を倒した！30コイン獲得！\n（所持コイン：{playerCoins}）\n\nボスの分身が現れた！");
+
+                gameTimer.Stop();
+                mainTabControl.SelectedTab = skillTabPage;
             }
-            else
+        }
+
+        private void OnBossCloneDefeated()
+        {
+            bool anyAlive = (bossClone1 != null && bossClone1.IsAlive)
+                          || (bossClone2 != null && bossClone2.IsAlive);
+
+            if (!anyAlive)
             {
-                MessageBox.Show("ボスを倒した！クリア！");
+                stageIndex = 3;
+                playerCoins += 100;
+                UpdateCoinDisplays();
+
+                MessageBox.Show(
+                    "🎉 おめでとうございます！ 🎉\n\nボスの分身を全て撃破し、ゲームクリアです！\n\n獲得コイン：100枚",
+                    "GAME CLEAR!!",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+
                 gameTimer.Stop();
                 gameStartButton.Enabled = true;
             }
         }
+
+        private void HandlePlayerDefeat()
+        {
+            MessageBox.Show("敗北...");
+            gameTimer.Stop();
+            gameStartButton.Enabled = true;
+
+            isWPressed = false;
+            isAPressed = false;
+            isSPressed = false;
+            isDPressed = false;
+        }
+
+        private bool CheckPlayerHit(Enemy target)
+        {
+            if (player.CurrentAttack == Player.AttackType.Melee)
+            {
+                float mdx = player.X - target.X;
+                float mdy = player.Y - target.Y;
+                float mDistance = (float)Math.Sqrt(mdx * mdx + mdy * mdy);
+                return mDistance <= 60f;
+            }
+            else if (player.CurrentAttack == Player.AttackType.Ranged)
+            {
+                float rdx = mouseX - player.X;
+                float rdy = mouseY - player.Y;
+                float rLength = (float)Math.Sqrt(rdx * rdx + rdy * rdy);
+
+                if (rLength > 0)
+                {
+                    float toEnemyX = target.X - player.X;
+                    float toEnemyY = target.Y - player.Y;
+                    float toEnemyLength = (float)Math.Sqrt(toEnemyX * toEnemyX + toEnemyY * toEnemyY);
+
+                    if (toEnemyLength > 0 && toEnemyLength <= 300f)
+                    {
+                        float dot = (rdx / rLength) * (toEnemyX / toEnemyLength)
+                                  + (rdy / rLength) * (toEnemyY / toEnemyLength);
+                        return dot > 0.9f;
+                    }
+                }
+            }
+            return false;
+        }
+
         // ------------------------------------------------------------
-        // gameTimer_Tick：毎フレーム、状態を更新する
+        // 指定したWeakEnemy1（通常雑魚orボス分身、共通）の攻撃を判定する
         // ------------------------------------------------------------
+        private void ProcessWeakEnemy1Attacks(WeakEnemy1 w1)
+        {
+            if (w1 == null || !w1.IsAlive) return;
+
+            if (w1.IsAttackActive && !w1.HasDealtDamageThisAttack)
+            {
+                float edx = player.X - w1.X;
+                float edy = player.Y - w1.Y;
+                float eDistance = (float)Math.Sqrt(edx * edx + edy * edy);
+
+                if (eDistance <= w1.AttackRadius && player.IsAlive)
+                {
+                    player.TakeDamage(w1.AttackPower);
+                    w1.MarkDamageDealt();
+                    if (!player.IsStunned) player.ApplyStun();
+
+                    if (!player.IsAlive)
+                    {
+                        HandlePlayerDefeat();
+                        return;
+                    }
+                }
+            }
+
+            if (w1.IsGridActive && !w1.HasDealtGridDamage)
+            {
+                float cellW = gameTabPage.Width / (float)WeakEnemy1.GRID_COLS;
+                float cellH = gameTabPage.Height / (float)WeakEnemy1.GRID_ROWS;
+                int playerCol = (int)(player.X / cellW);
+                int playerRow = (int)(player.Y / cellH);
+
+                if (playerRow >= 0 && playerRow < WeakEnemy1.GRID_ROWS &&
+                    playerCol >= 0 && playerCol < WeakEnemy1.GRID_COLS)
+                {
+                    if (w1.DangerCells[playerRow, playerCol] && player.IsAlive)
+                    {
+                        player.TakeDamage(15);
+                        w1.MarkGridDamageDealt();
+                        if (!player.IsStunned) player.ApplyStun();
+
+                        if (!player.IsAlive)
+                        {
+                            HandlePlayerDefeat();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (w1.IsBubbleActive && !w1.HasDealtBubbleDamage)
+            {
+                foreach (var bubble in w1.DangerBubbles)
+                {
+                    float bdx = player.X - bubble.X;
+                    float bdy = player.Y - bubble.Y;
+                    float bDist = (float)Math.Sqrt(bdx * bdx + bdy * bdy);
+
+                    if (bDist <= w1.BubbleRadius && player.IsAlive)
+                    {
+                        player.TakeDamage(12);
+                        w1.MarkBubbleDamageDealt();
+                        if (!player.IsStunned) player.ApplyStun();
+
+                        if (!player.IsAlive)
+                        {
+                            HandlePlayerDefeat();
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ProcessWeakEnemy2Attacks(WeakEnemy2 w2)
+        {
+            if (w2 == null || !w2.IsAlive) return;
+
+            if (w2.IsAttackActive && !w2.HasDealtDamageThisAttack)
+            {
+                float edx = player.X - w2.AttackTargetX;
+                float edy = player.Y - w2.AttackTargetY;
+                float eDistance = (float)Math.Sqrt(edx * edx + edy * edy);
+
+                if (eDistance <= 40f && player.IsAlive)
+                {
+                    player.TakeDamage(w2.AttackPower);
+                    w2.MarkDamageDealt();
+                    if (!player.IsStunned) player.ApplyStun();
+
+                    if (!player.IsAlive)
+                    {
+                        HandlePlayerDefeat();
+                        return;
+                    }
+                }
+            }
+
+            if (w2.IsCircularActive && !w2.HasDealtCircularDamage)
+            {
+                float cdx = player.X - w2.X;
+                float cdy = player.Y - w2.Y;
+                float cDist = (float)Math.Sqrt(cdx * cdx + cdy * cdy);
+
+                if (cDist <= w2.CircularRadius && player.IsAlive)
+                {
+                    player.TakeDamage(w2.AttackPower);
+                    w2.MarkCircularDamageDealt();
+                    if (!player.IsStunned) player.ApplyStun();
+
+                    if (!player.IsAlive)
+                    {
+                        HandlePlayerDefeat();
+                        return;
+                    }
+                }
+            }
+
+            if (w2.IsBubbleActive && !w2.HasDealtBubbleDamage)
+            {
+                foreach (var bubble in w2.DangerBubbles)
+                {
+                    float bdx = player.X - bubble.X;
+                    float bdy = player.Y - bubble.Y;
+                    float bDist = (float)Math.Sqrt(bdx * bdx + bdy * bdy);
+
+                    if (bDist <= w2.BubbleRadius && player.IsAlive)
+                    {
+                        player.TakeDamage(12);
+                        w2.MarkBubbleDamageDealt();
+                        if (!player.IsStunned) player.ApplyStun();
+
+                        if (!player.IsAlive)
+                        {
+                            HandlePlayerDefeat();
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ProcessContactDamage(Enemy target)
+        {
+            if (target == null || !target.IsAlive) return;
+
+            float dx2 = player.X - target.X;
+            float dy2 = player.Y - target.Y;
+            float distance = (float)Math.Sqrt(dx2 * dx2 + dy2 * dy2);
+
+            if (distance < target.Radius + player.Radius)
+            {
+                if (!player.IsAlive) return;
+
+                if (!player.IsStunned)
+                {
+                    player.TakeDamage(1);
+                    player.ApplyStun();
+                }
+
+                float pushDx = player.X - target.X;
+                float pushDy = player.Y - target.Y;
+                float pushLength = (float)Math.Sqrt(pushDx * pushDx + pushDy * pushDy);
+
+                if (pushLength > 0)
+                {
+                    float minDistance = target.Radius + player.Radius + 5f;
+                    player.X = target.X + (pushDx / pushLength) * minDistance;
+                    player.Y = target.Y + (pushDy / pushLength) * minDistance;
+                }
+
+                if (!player.IsAlive)
+                {
+                    HandlePlayerDefeat();
+                }
+            }
+        }
+
         private void gameTimer_Tick(object sender, EventArgs e)
         {
             if (player == null) return;
 
-            // ------------------------------------------------------------
-            // プレイヤーの移動
-            // ------------------------------------------------------------
             float dx = 0, dy = 0;
             if (isWPressed) dy -= 1;
             if (isSPressed) dy += 1;
@@ -196,137 +403,281 @@ namespace GamePartsApp
             if (isDPressed) dx += 1;
 
             player.Move(dx, dy, 4f);
-
             player.UpdateFrame();
-            // gameTimer_Tick の中、Move の後に追加
+
             player.X = Math.Clamp(player.X, player.Radius, gameTabPage.Width - player.Radius);
             player.Y = Math.Clamp(player.Y, player.Radius, gameTabPage.Height - player.Radius);
 
-            // ------------------------------------------------------------
-            // 敵の更新（現在の対象だけ）
-            // ------------------------------------------------------------
-            if (currentTarget != null && currentTarget.IsAlive)
+            if (coinFrames.Count > 0)
             {
-                currentTarget.UpdateFrame(player.X, player.Y);
-                // ------------------------------------------------------------
-                // ★追加：敵に近づきすぎたら、簡易的にダメージを受ける
-                // ------------------------------------------------------------
-                float dx2 = player.X - currentTarget.X;
-                float dy2 = player.Y - currentTarget.Y;
-                float distance = (float)Math.Sqrt(dx2 * dx2 + dy2 * dy2);
+                coinFrameIndex = (coinFrameIndex + 1) % (coinFrames.Count * 6);
+            }
 
-                if (distance < currentTarget.Radius + player.Radius)
+            if (player.IsAttackActive && !player.HasDealtDamageThisAttack)
+            {
+                if (stageIndex == 2)
                 {
-                    player.TakeDamage(1);  // 接触しているだけで、少しずつダメージ（簡易版）
-                    player.ApplyStun();  // ★追加：ダメージを受けたら、スタンする
-                                         // ------------------------------------------------------------
-                                         // ★追加：プレイヤーを、敵から押し出す
-                                         // ------------------------------------------------------------
-                    float pushDx = player.X - currentTarget.X;
-                    float pushDy = player.Y - currentTarget.Y;
-                    float pushLength = (float)Math.Sqrt(pushDx * pushDx + pushDy * pushDy);
-
-                    if (pushLength > 0)
+                    if (bossClone1 != null && bossClone1.IsAlive && CheckPlayerHit(bossClone1))
                     {
-                        float minDistance = currentTarget.Radius + player.Radius;
-                        player.X = currentTarget.X + (pushDx / pushLength) * minDistance;
-                        player.Y = currentTarget.Y + (pushDy / pushLength) * minDistance;
+                        bossClone1.TakeDamage(player.AttackPower);
+                        player.MarkDamageDealt();
+                        if (!bossClone1.IsAlive) OnBossCloneDefeated();
                     }
-
-                    if (!player.IsAlive)
+                    else if (bossClone2 != null && bossClone2.IsAlive && CheckPlayerHit(bossClone2))
                     {
-                        
-                        MessageBox.Show("敗北...");
-                        gameTimer.Stop();
-                        gameStartButton.Enabled = true;
+                        bossClone2.TakeDamage(player.AttackPower);
+                        player.MarkDamageDealt();
+                        if (!bossClone2.IsAlive) OnBossCloneDefeated();
+                    }
+                }
+                else if (currentTarget != null && currentTarget.IsAlive && CheckPlayerHit(currentTarget))
+                {
+                    currentTarget.TakeDamage(player.AttackPower);
+                    player.MarkDamageDealt();
+
+                    if (!currentTarget.IsAlive)
+                    {
+                        OnEnemyDefeated();
                     }
                 }
             }
 
-            // ------------------------------------------------------------
-            // タブ4を、再描画する
-            // ------------------------------------------------------------
+            if (stageIndex == 2)
+            {
+                if (bossClone1 != null && bossClone1.IsAlive)
+                {
+                    bossClone1.UpdateFrame(player.X, player.Y);
+                    ProcessWeakEnemy1Attacks(bossClone1);
+                    ProcessContactDamage(bossClone1);
+                }
+
+                if (bossClone2 != null && bossClone2.IsAlive)
+                {
+                    bossClone2.UpdateFrame(player.X, player.Y);
+                    ProcessWeakEnemy2Attacks(bossClone2);
+                    ProcessContactDamage(bossClone2);
+                }
+            }
+            else if (currentTarget != null && currentTarget.IsAlive)
+            {
+                currentTarget.UpdateFrame(player.X, player.Y);
+
+                if (currentTarget is WeakEnemy1 w1)
+                {
+                    ProcessWeakEnemy1Attacks(w1);
+                }
+                else if (currentTarget is WeakEnemy2 w2)
+                {
+                    ProcessWeakEnemy2Attacks(w2);
+                }
+
+                ProcessContactDamage(currentTarget);
+            }
+
             gameTabPage.Invalidate();
         }
 
-        // ------------------------------------------------------------
-        // gameTabPage の描画処理（プレイヤーと敵を、円で描く）
-        // ------------------------------------------------------------
+        private void DrawWeakEnemy1Attacks(Graphics g, WeakEnemy1 w1)
+        {
+            if (w1.IsWarning || w1.IsAttackActive)
+            {
+                Color c = w1.IsWarning ? Color.Yellow : Color.Red;
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(120, c)))
+                {
+                    g.FillEllipse(b, w1.X - w1.AttackRadius, w1.Y - w1.AttackRadius, w1.AttackRadius * 2, w1.AttackRadius * 2);
+                }
+            }
+
+            if (w1.IsGridWarning || w1.IsGridActive)
+            {
+                float cellWidth = gameTabPage.Width / (float)WeakEnemy1.GRID_COLS;
+                float cellHeight = gameTabPage.Height / (float)WeakEnemy1.GRID_ROWS;
+
+                Color dangerColor = w1.IsGridWarning ? Color.Yellow : Color.Red;
+
+                for (int row = 0; row < WeakEnemy1.GRID_ROWS; row++)
+                {
+                    for (int col = 0; col < WeakEnemy1.GRID_COLS; col++)
+                    {
+                        if (w1.DangerCells[row, col])
+                        {
+                            using (SolidBrush cellBrush = new SolidBrush(Color.FromArgb(100, dangerColor)))
+                            {
+                                g.FillRectangle(cellBrush, col * cellWidth, row * cellHeight, cellWidth, cellHeight);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (w1.IsBubbleWarning || w1.IsBubbleActive)
+            {
+                Color bubbleColor = w1.IsBubbleWarning ? Color.Yellow : Color.Red;
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(130, bubbleColor)))
+                {
+                    foreach (var bubble in w1.DangerBubbles)
+                    {
+                        g.FillEllipse(b, bubble.X - w1.BubbleRadius, bubble.Y - w1.BubbleRadius, w1.BubbleRadius * 2, w1.BubbleRadius * 2);
+                    }
+                }
+            }
+        }
+
+        private void DrawWeakEnemy2Attacks(Graphics g, WeakEnemy2 w2)
+        {
+            if (w2.IsWarning || w2.IsAttackActive)
+            {
+                Color c = w2.IsWarning ? Color.Yellow : Color.Red;
+                float r = 40f;
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(150, c)))
+                {
+                    g.FillEllipse(b, w2.AttackTargetX - r, w2.AttackTargetY - r, r * 2, r * 2);
+                }
+            }
+
+            if (w2.IsCircularWarning || w2.IsCircularActive)
+            {
+                Color c = w2.IsCircularWarning ? Color.Yellow : Color.Red;
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(120, c)))
+                {
+                    g.FillEllipse(b, w2.X - w2.CircularRadius, w2.Y - w2.CircularRadius, w2.CircularRadius * 2, w2.CircularRadius * 2);
+                }
+            }
+
+            if (w2.IsBubbleWarning || w2.IsBubbleActive)
+            {
+                Color bubbleColor = w2.IsBubbleWarning ? Color.Yellow : Color.Red;
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(130, bubbleColor)))
+                {
+                    foreach (var bubble in w2.DangerBubbles)
+                    {
+                        g.FillEllipse(b, bubble.X - w2.BubbleRadius, bubble.Y - w2.BubbleRadius, w2.BubbleRadius * 2, w2.BubbleRadius * 2);
+                    }
+                }
+            }
+        }
+
+        private void DrawEnemyBody(Graphics g, Enemy enemy)
+        {
+            using (SolidBrush enemyBrush = new SolidBrush(Color.Red))
+            {
+                g.FillEllipse(enemyBrush, enemy.X - enemy.Radius, enemy.Y - enemy.Radius, enemy.Radius * 2, enemy.Radius * 2);
+            }
+
+            float hpBarWidth = 60f;
+            float hpRatio = (float)enemy.HP / enemy.MaxHP;
+            g.FillRectangle(Brushes.Gray, enemy.X - hpBarWidth / 2, enemy.Y - enemy.Radius - 15, hpBarWidth, 6);
+            g.FillRectangle(Brushes.Lime, enemy.X - hpBarWidth / 2, enemy.Y - enemy.Radius - 15, hpBarWidth * hpRatio, 6);
+        }
+
         private void gameTabPage_Paint(object sender, PaintEventArgs e)
         {
             if (player == null) return;
 
-            // ------------------------------------------------------------
-            // ① 回転処理を先に準備する（Saveから）
-            // ------------------------------------------------------------
-            var state = e.Graphics.Save();  // 今の描画状態を、いったん保存しておく
+            var state = e.Graphics.Save();
 
             if (player.IsInvincible)
             {
-                // プレイヤーの中心を基準に、回転させる
                 e.Graphics.TranslateTransform(player.X, player.Y);
                 e.Graphics.RotateTransform(player.DodgeRotation);
                 e.Graphics.TranslateTransform(-player.X, -player.Y);
             }
 
-            // ------------------------------------------------------------
-            // ② プレイヤーの色を決める（無敵 > スタン > 通常、の優先順位）
-            // ------------------------------------------------------------
-            // if-elseなので、上から順番にチェックされる。
-            // 無敵中はライトブルー、それ以外でスタン中はオレンジ、
-            // どちらでもなければ通常の青、という優先順位になる。
             Color playerColor;
             if (player.IsInvincible) playerColor = Color.LightBlue;
             else if (player.IsStunned) playerColor = Color.Orange;
             else playerColor = Color.Blue;
 
-            // ------------------------------------------------------------
-            // ③ プレイヤーを、1回だけ描く（回転・色分けが反映された状態で）
-            // ------------------------------------------------------------
             using (SolidBrush playerBrush = new SolidBrush(playerColor))
             {
                 e.Graphics.FillEllipse(playerBrush, player.X - player.Radius, player.Y - player.Radius, player.Radius * 2, player.Radius * 2);
 
-                // 回転が見えるように、円の中に「向き」の線を描く
                 using (Pen linePen = new Pen(Color.White, 3))
                 {
                     e.Graphics.DrawLine(linePen, player.X, player.Y, player.X + player.Radius, player.Y);
                 }
             }
 
-            // ------------------------------------------------------------
-            // ④ 回転させた座標系を、元に戻す
-            // ------------------------------------------------------------
-            e.Graphics.Restore(state);
-
-            // ------------------------------------------------------------
-            // ⑤ 現在戦っている敵を、赤い円で描く（HPバーも一緒に）
-            // ------------------------------------------------------------
-            if (currentTarget != null && currentTarget.IsAlive)
+            if (player.IsAttackWarning || player.IsAttackActive)
             {
-                using (SolidBrush enemyBrush = new SolidBrush(Color.Red))
-                {
-                    e.Graphics.FillEllipse(enemyBrush, currentTarget.X - currentTarget.Radius, currentTarget.Y - currentTarget.Radius, currentTarget.Radius * 2, currentTarget.Radius * 2);
-                }
+                Color attackColor = player.IsAttackWarning ? Color.Yellow : Color.Red;
 
-                // 敵のHPバー（上に表示）
-                float hpBarWidth = 60f;
-                float hpRatio = (float)currentTarget.HP / currentTarget.MaxHP;
-                e.Graphics.FillRectangle(Brushes.Gray, currentTarget.X - hpBarWidth / 2, currentTarget.Y - currentTarget.Radius - 15, hpBarWidth, 6);
-                e.Graphics.FillRectangle(Brushes.Lime, currentTarget.X - hpBarWidth / 2, currentTarget.Y - currentTarget.Radius - 15, hpBarWidth * hpRatio, 6);
+                if (player.CurrentAttack == Player.AttackType.Melee)
+                {
+                    float meleeRadius = 60f;
+                    using (SolidBrush attackBrush = new SolidBrush(Color.FromArgb(120, attackColor)))
+                    {
+                        e.Graphics.FillEllipse(attackBrush,
+                            player.X - meleeRadius, player.Y - meleeRadius,
+                            meleeRadius * 2, meleeRadius * 2);
+                    }
+                }
+                else if (player.CurrentAttack == Player.AttackType.Ranged)
+                {
+                    float rangedDx = mouseX - player.X;
+                    float rangedDy = mouseY - player.Y;
+                    float rangedLength = (float)Math.Sqrt(rangedDx * rangedDx + rangedDy * rangedDy);
+
+                    if (rangedLength > 0)
+                    {
+                        float laserEndX = player.X + (rangedDx / rangedLength) * 300f;
+                        float laserEndY = player.Y + (rangedDy / rangedLength) * 300f;
+
+                        using (Pen laserPen = new Pen(attackColor, 8))
+                        {
+                            e.Graphics.DrawLine(laserPen, player.X, player.Y, laserEndX, laserEndY);
+                        }
+                    }
+                }
             }
 
-            // ------------------------------------------------------------
-            // ⑥ プレイヤーのHPバー（画面左上に固定表示）
-            // ------------------------------------------------------------
+            e.Graphics.Restore(state);
+
+            if (stageIndex == 2)
+            {
+                if (bossClone1 != null && bossClone1.IsAlive)
+                {
+                    DrawEnemyBody(e.Graphics, bossClone1);
+                    DrawWeakEnemy1Attacks(e.Graphics, bossClone1);
+                }
+                if (bossClone2 != null && bossClone2.IsAlive)
+                {
+                    DrawEnemyBody(e.Graphics, bossClone2);
+                    DrawWeakEnemy2Attacks(e.Graphics, bossClone2);
+                }
+            }
+            else if (currentTarget != null && currentTarget.IsAlive)
+            {
+                DrawEnemyBody(e.Graphics, currentTarget);
+
+                if (currentTarget is WeakEnemy1 w1)
+                {
+                    DrawWeakEnemy1Attacks(e.Graphics, w1);
+                }
+                else if (currentTarget is WeakEnemy2 w2)
+                {
+                    DrawWeakEnemy2Attacks(e.Graphics, w2);
+                }
+            }
+
             float playerHpRatio = (float)player.HP / 100;
             e.Graphics.FillRectangle(Brushes.Gray, 10, 10, 150, 20);
             e.Graphics.FillRectangle(Brushes.Lime, 10, 10, 150 * playerHpRatio, 20);
             e.Graphics.DrawString($"HP: {player.HP}/100", this.Font, Brushes.White, 15, 11);
 
-            // ------------------------------------------------------------
-            // ⑦ マウス方向（攻撃方向）を示す線
-            // ------------------------------------------------------------
+            if (coinFrames.Count > 0)
+            {
+                int frameToShow = coinFrameIndex / 6;
+                if (frameToShow >= coinFrames.Count) frameToShow = 0;
+
+                e.Graphics.DrawImage(coinFrames[frameToShow], 15, 35, 24, 24);
+                e.Graphics.DrawString($"x {playerCoins}", this.Font, Brushes.Yellow, 42, 38);
+            }
+            else
+            {
+                e.Graphics.DrawString($"コイン: {playerCoins}", this.Font, Brushes.Yellow, 15, 35);
+            }
+
             float dirDx = mouseX - player.X;
             float dirDy = mouseY - player.Y;
             float dirLength = (float)Math.Sqrt(dirDx * dirDx + dirDy * dirDy);
@@ -343,24 +694,10 @@ namespace GamePartsApp
             }
         }
 
-        // ====================================================================
-        // フィールド①：スキル選択関連
-        // ====================================================================
-        // SkillSelectorのインスタンスを、フィールドとして1つだけ持つ。
-        // = new SkillSelector() で、フィールド宣言と同時にインスタンスを作る、
-        // という書き方（今日何度も使ってきたパターン）。
-        private SkillSelector skillSelector = new SkillSelector();
 
-        // ====================================================================
-        // フィールド②：ガチャガチャ関連
-        // ====================================================================
+        private SkillSelector skillSelector = new SkillSelector();
         private GachaManager gachaManager = new GachaManager();
 
-        // ------------------------------------------------------------
-        // ガチャの「くじ引き演出」で使う、4枚の画像パスのリスト
-        // ------------------------------------------------------------
-        // List<string> の初期化子で、あらかじめ4枚分のパスを
-        // まとめて用意しておく。
         private List<string> gachaAnimationFrames = new List<string>
         {
             @"images\gacha1.png",
@@ -369,90 +706,59 @@ namespace GamePartsApp
             @"images\gacha4.png"
         };
 
-        // 今、演出アニメの何枚目を表示しているか
         private int currentFrame = 0;
-
-        // ------------------------------------------------------------
-        // pendingResult：抽選で決まった「今回のガチャ結果」を覚えておく
-        // ------------------------------------------------------------
-        // GachaItem? の「?」は、null許容型（以前学んだ内容）。
-        // 「最初はまだ何も引いていない（null）かもしれない」ことを
-        // 正直に宣言している。
         private GachaItem? pendingResult;
-
-        // 歩行アニメの、今何枚目を表示しているか
         private int walkFrameIndex = 0;
 
-        // ====================================================================
-        // フィールド③：スロット関連
-        // ====================================================================
-        // ガチャと同じアイテムのリストを、スロットでも再利用する。
-        // 新しいデータを作り直さず、既存のGachaManagerから借りてくる。
         private List<GachaItem> slotItems;
-
-        // ------------------------------------------------------------
-        // 3つの窓（左・真ん中・右）、それぞれの「今、何コマ目か」
-        // ------------------------------------------------------------
         private int leftCurrentIndex = 0;
         private int centerCurrentIndex = 0;
         private int rightCurrentIndex = 0;
-
-        // ------------------------------------------------------------
-        // slotStopCount：ストップボタンを、今まで何回押したか
-        // ------------------------------------------------------------
-        // 0 = まだ押していない
-        // 1 = 左が止まった
-        // 2 = 真ん中も止まった
-        // 3 = 右も止まった（全部止まった＝判定へ）
         private int slotStopCount = 0;
 
-        // ====================================================================
-        // コンストラクタ：Form1が作られた瞬間（アプリ起動時）の初期化
-        // ====================================================================
         public Form1()
         {
-            // InitializeComponent()：
-            // フォームデザイン画面で配置した部品（Button, PictureBoxなど）を
-            // 実際に画面上に生成する、自動生成されたメソッド。
-            // これを呼ばないと、部品が何も表示されない。
             InitializeComponent();
 
-            // ------------------------------------------------------------
-            // スキル選択の3つのPanelに、あらかじめ枠線を付けておく
-            // ------------------------------------------------------------
+            typeof(Panel).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                null, gameTabPage, new object[] { true });
+
             skill1Panel.BorderStyle = BorderStyle.FixedSingle;
             skill2Panel.BorderStyle = BorderStyle.FixedSingle;
             skill3Panel.BorderStyle = BorderStyle.FixedSingle;
 
-            // ------------------------------------------------------------
-            // スロット用のアイテムリストを、GachaManagerから取得する
-            // ------------------------------------------------------------
-            // GetAllItems()というメソッド経由で、
-            // GachaManagerが内部に持っているリストを「読み取り」で借りる。
             slotItems = gachaManager.GetAllItems();
 
-            // ------------------------------------------------------------
-            // 起動直後に、スキル選択の最初の3つを表示しておく
-            // ------------------------------------------------------------
             RollSkills();
+
+            UpdateCoinDisplays();
+
+            // ------------------------------------------------------------
+            // コインアニメーション用の画像を、あらかじめ読み込んでおく
+            // ------------------------------------------------------------
+            // try-catchで囲むことで、画像ファイルが見つからなくても
+            // アプリ全体がクラッシュしないようにしている。
+            // 見つからなかった場合は、gameTabPage_Paintの中で
+            // 「文字だけの表示」にフォールバックする。
+            try
+            {
+                coinFrames.Add(Image.FromFile(@"images\coin_frame1.jpg"));
+                coinFrames.Add(Image.FromFile(@"images\coin_frame2.jpg"));
+                coinFrames.Add(Image.FromFile(@"images\coin_frame3.jpg"));
+                coinFrames.Add(Image.FromFile(@"images\coin_frame4.jpg"));
+            }
+            catch
+            {
+                coinFrames.Clear();
+            }
         }
 
-        // ====================================================================
-        // ★スキル選択機能
-        // ====================================================================
-
-        // ------------------------------------------------------------
-        // マウスが乗った瞬間のハイライト（3パネル分）
-        // ------------------------------------------------------------
-        // MouseEnterイベント：マウスカーソルが、そのコントロールの上に
-        // 乗った瞬間に発生する。
         private void skill1Panel_MouseEnter(object sender, EventArgs e)
         {
             skill1Panel.BackColor = Color.LightYellow;
         }
 
-        // MouseLeaveイベント：マウスが、そのコントロールから離れた瞬間に発生。
-        // SystemColors.Control は、Windowsの標準的な背景色（元の色に戻す）。
         private void skill1Panel_MouseLeave(object sender, EventArgs e)
         {
             skill1Panel.BackColor = SystemColors.Control;
@@ -478,12 +784,6 @@ namespace GamePartsApp
             skill3Panel.BackColor = SystemColors.Control;
         }
 
-        // ------------------------------------------------------------
-        // 各パネルがクリックされたときの処理
-        // ------------------------------------------------------------
-        // skillSelector.CurrentChoices[0] のように、
-        // 「今表示されている3つのスキル」から、対応する1つを取り出して、
-        // 共通の確認処理（ConfirmSkillSelection）に渡している。
         private void skill1Panel_Click(object sender, EventArgs e)
         {
             ConfirmSkillSelection(skillSelector.CurrentChoices[0]);
@@ -499,19 +799,8 @@ namespace GamePartsApp
             ConfirmSkillSelection(skillSelector.CurrentChoices[2]);
         }
 
-        // ------------------------------------------------------------
-        // ConfirmSkillSelection：確認ダイアログ→確定ポップアップの流れ
-        // ------------------------------------------------------------
-        // 引数として Skill を1つ受け取ることで、
-        // どのパネルがクリックされても、この1つのメソッドで
-        // 共通の処理ができるようになっている（コードの重複を防ぐ）。
         private void ConfirmSkillSelection(Skill skill)
         {
-            // ------------------------------------------------------------
-            // MessageBoxButtons.YesNo：はい/いいえの2択ダイアログ
-            // ------------------------------------------------------------
-            // 戻り値は DialogResult型で、
-            // どちらのボタンが押されたかが分かる。
             DialogResult result = MessageBox.Show(
                 $"「{skill.Name}」を選びますか？\n\n{skill.Description}",
                 "スキル選択の確認",
@@ -519,7 +808,6 @@ namespace GamePartsApp
                 MessageBoxIcon.Question
             );
 
-            // 「はい」が押された場合だけ、確定ポップアップを出す
             if (result == DialogResult.Yes)
             {
                 MessageBox.Show(
@@ -528,33 +816,25 @@ namespace GamePartsApp
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
                 );
+
+                if (!gameTimer.Enabled && player != null && player.IsAlive)
+                {
+                    mainTabControl.SelectedTab = gameTabPage;
+                    gameTimer.Start();
+                }
             }
-            // 「いいえ」の場合は、何もせず選択画面に戻るだけ
         }
 
-        // ------------------------------------------------------------
-        // リロールボタン：3つのスキルを選び直す
-        // ------------------------------------------------------------
         private void rerollButton_Click(object sender, EventArgs e)
         {
             RollSkills();
         }
 
-        // ------------------------------------------------------------
-        // RollSkills：3つのスキルを選び直し、画面に反映するメソッド
-        // ------------------------------------------------------------
         private void RollSkills()
         {
-            // SkillSelectorに「選び直して」とお願いする
             skillSelector.RerollSkills();
-
-            // 選ばれた結果（3つ）を取得する
             var choices = skillSelector.CurrentChoices;
 
-            // ------------------------------------------------------------
-            // choices[0]（1つ目）の情報を、名前・説明・レア度の
-            // 各Labelに反映し、さらにレア度に応じた色も設定する
-            // ------------------------------------------------------------
             skill1Label.Text = choices[0].Name;
             skill1DescLabel.Text = choices[0].Description;
             skill1RarityLabel.Text = choices[0].GetRarityStars();
@@ -562,7 +842,6 @@ namespace GamePartsApp
             skill1DescLabel.ForeColor = choices[0].GetRarityColor();
             skill1RarityLabel.ForeColor = choices[0].GetRarityColor();
 
-            // choices[1]（2つ目）も、全く同じパターンで反映する
             skill2Label.Text = choices[1].Name;
             skill2DescLabel.Text = choices[1].Description;
             skill2RarityLabel.Text = choices[1].GetRarityStars();
@@ -570,7 +849,6 @@ namespace GamePartsApp
             skill2DescLabel.ForeColor = choices[1].GetRarityColor();
             skill2RarityLabel.ForeColor = choices[1].GetRarityColor();
 
-            // choices[2]（3つ目）も同様
             skill3Label.Text = choices[2].Name;
             skill3DescLabel.Text = choices[2].Description;
             skill3RarityLabel.Text = choices[2].GetRarityStars();
@@ -579,92 +857,55 @@ namespace GamePartsApp
             skill3RarityLabel.ForeColor = choices[2].GetRarityColor();
         }
 
-        // ====================================================================
-        // ★ガチャガチャ機能
-        // ====================================================================
-
-        // ------------------------------------------------------------
-        // ガチャボタンが押されたときの処理
-        // ------------------------------------------------------------
         private void gachaButton_Click(object sender, EventArgs e)
         {
-            // ------------------------------------------------------------
-            // 【重要なバグ修正箇所】
-            // ------------------------------------------------------------
-            // もし前回、歩行アニメ（歩くペンギン）が表示されていて、
-            // walkAnimationTimerが動いたままだったら、ここで必ず止める。
-            //
-            // これを書かないと、以下の順で0除算エラーが起きていた：
-            //   ① 歩くペンギンが出る → walkAnimationTimer.Start()
-            //   ② その状態で、もう一度ガチャを引く
-            //   ③ pendingResultが「歩くペンギンではない、別のアイテム」に変わる
-            //   ④ でもwalkAnimationTimerは動いたまま
-            //   ⑤ walkAnimationTimer_Tickが呼ばれ続け、
-            //      WalkFrames.Countが0のアイテムに対して % しようとしてエラー
-            //
-            // ボタンを押した瞬間に必ずStop()することで、
-            // この「前回の状態が残ったまま」という事故を防いでいる。
+            const int GACHA_COST = 10;
+
+            if (playerCoins < GACHA_COST)
+            {
+                MessageBox.Show($"コインが足りません！（必要：{GACHA_COST}枚、所持：{playerCoins}枚）");
+                return;
+            }
+
+            playerCoins -= GACHA_COST;
+            UpdateCoinDisplays();
+
             walkAnimationTimer.Stop();
 
-            // ------------------------------------------------------------
-            // ① 先に抽選結果を決めておく（この時点では、まだ表示しない）
-            // ------------------------------------------------------------
             pendingResult = gachaManager.DrawGacha();
 
-            // ------------------------------------------------------------
-            // ② アニメーションを、1枚目から開始する
-            // ------------------------------------------------------------
             currentFrame = 0;
             gachaPictureBox.ImageLocation = gachaAnimationFrames[currentFrame];
 
-            // ボタンの連打を防ぐため、一時的に押せなくする
             gachaButton.Enabled = false;
-
-            // アニメーション用のTimerを開始する
             gachaTimer.Start();
         }
 
-        // ------------------------------------------------------------
-        // gachaTimer_Tick：くじ引き演出のアニメーション本体
-        // ------------------------------------------------------------
         private void gachaTimer_Tick(object sender, EventArgs e)
         {
             currentFrame++;
 
             if (currentFrame < gachaAnimationFrames.Count)
             {
-                // ------------------------------------------------------------
-                // まだアニメーションの途中：次の画像を表示する
-                // ------------------------------------------------------------
                 gachaPictureBox.ImageLocation = gachaAnimationFrames[currentFrame];
             }
             else
             {
-                // ------------------------------------------------------------
-                // アニメーションが最後まで終わった：結果を表示する
-                // ------------------------------------------------------------
                 gachaTimer.Stop();
 
-                // pendingResultがnullでないか、念のため確認してから使う
                 if (pendingResult != null)
                 {
-                    // ------------------------------------------------------------
-                    // 歩行アニメを持つかどうかで、表示方法を分岐する
-                    // ------------------------------------------------------------
                     if (pendingResult.HasWalkAnimation())
                     {
-                        // 歩くペンギンなら、1枚目からループアニメを開始する
                         walkFrameIndex = 0;
                         gachaResultPictureBox.ImageLocation = pendingResult.WalkFrames[0];
                         walkAnimationTimer.Start();
                     }
                     else
                     {
-                        // 通常のアイテムは、レア度の色マスク付き画像を作って表示する
                         gachaResultPictureBox.Image = pendingResult.CreateOverlaidImage();
                     }
 
-                    // 結果発表のポップアップ
                     MessageBox.Show(
                         $"「{pendingResult.Name}」が出ました！\n（レア度：{pendingResult.GetRarityLabel()}）",
                         "ガチャ結果",
@@ -673,85 +914,69 @@ namespace GamePartsApp
                     );
                 }
 
-                // ボタンを、また押せる状態に戻す
                 gachaButton.Enabled = true;
             }
         }
 
-        // ------------------------------------------------------------
-        // walkAnimationTimer_Tick：歩行アニメを、永遠にループさせる
-        // ------------------------------------------------------------
         private void walkAnimationTimer_Tick(object sender, EventArgs e)
         {
-            // pendingResultがnullなら、これ以上何もしない（早期リターン）
             if (pendingResult == null) return;
 
-            // ------------------------------------------------------------
-            // % を使った循環：0→1→2→0→1→2→... と繰り返す
-            // ------------------------------------------------------------
+            if (pendingResult.WalkFrames.Count == 0)
+            {
+                walkAnimationTimer.Stop();
+                return;
+            }
+
             walkFrameIndex = (walkFrameIndex + 1) % pendingResult.WalkFrames.Count;
             gachaResultPictureBox.ImageLocation = pendingResult.WalkFrames[walkFrameIndex];
         }
 
-        // ====================================================================
-        // ★スロット機能：シンプル方式（3窓、レア度で速度変化）
-        // ====================================================================
-
-        // ------------------------------------------------------------
-        // スロットスタートボタン：3つの窓を、同時に回し始める
-        // ------------------------------------------------------------
         private void slotStartButton_Click(object sender, EventArgs e)
         {
-            // 何回目のストップ操作か、0にリセットしておく
+            const int SLOT_COST = 5;
+
+            if (playerCoins < SLOT_COST)
+            {
+                MessageBox.Show($"コインが足りません！（必要：{SLOT_COST}枚、所持：{playerCoins}枚）");
+                return;
+            }
+
+            playerCoins -= SLOT_COST;
+            UpdateCoinDisplays();
+
             slotStopCount = 0;
 
-            // 3つのTimerを、全部同時にスタートさせる
             leftTimer.Start();
             centerTimer.Start();
             rightTimer.Start();
 
-            // スタートボタンを押せなくし、ストップボタンを押せるようにする
             slotStartButton.Enabled = false;
             slotStopButton.Enabled = true;
             slotStopButton.Text = "左を止める";
         }
 
-        // ------------------------------------------------------------
-        // GetIntervalByRarity：レア度から、Timer間隔（ミリ秒）を決める
-        // ------------------------------------------------------------
-        // レア度が高いほど、間隔（Interval）が短くなる＝
-        // 切り替わりが速くなる＝止めにくくなる、という難易度表現。
         private int GetIntervalByRarity(int rarity)
         {
             return rarity switch
             {
-                1 => 400,  // 銅：ゆっくり（止めやすい）
+                1 => 400,
                 2 => 300,
                 3 => 200,
-                4 => 100,  // 虹：高速（止めにくい）
+                4 => 100,
                 _ => 300
             };
         }
 
-        // ------------------------------------------------------------
-        // 左窓：1コマ進めて表示し、レア度で次の速度を変える
-        // ------------------------------------------------------------
         private void leftTimer_Tick(object sender, EventArgs e)
         {
-            // 循環：% を使って、最後まで行ったら先頭に戻る
             leftCurrentIndex = (leftCurrentIndex + 1) % slotItems.Count;
-
-            // 5つのPictureBoxを、まとめて更新する（共通メソッドに任せる）
             UpdateReelDisplay("left", leftCurrentIndex);
 
-            // 今、中央に来ている図柄のレア度に応じて、次の間隔を変える
             var currentItem = slotItems[leftCurrentIndex];
             leftTimer.Interval = GetIntervalByRarity(currentItem.Rarity);
         }
 
-        // ------------------------------------------------------------
-        // 真ん中窓：左窓と、全く同じ考え方
-        // ------------------------------------------------------------
         private void centerTimer_Tick(object sender, EventArgs e)
         {
             centerCurrentIndex = (centerCurrentIndex + 1) % slotItems.Count;
@@ -761,9 +986,6 @@ namespace GamePartsApp
             centerTimer.Interval = GetIntervalByRarity(currentItem.Rarity);
         }
 
-        // ------------------------------------------------------------
-        // 右窓：同じく同じ考え方
-        // ------------------------------------------------------------
         private void rightTimer_Tick(object sender, EventArgs e)
         {
             rightCurrentIndex = (rightCurrentIndex + 1) % slotItems.Count;
@@ -773,30 +995,13 @@ namespace GamePartsApp
             rightTimer.Interval = GetIntervalByRarity(currentItem.Rarity);
         }
 
-        // ------------------------------------------------------------
-        // UpdateReelDisplay：指定した窓の、5つのPictureBoxをまとめて更新する
-        // ------------------------------------------------------------
-        // 3つの窓（left, center, right）で、
-        // 「表示を更新する」という同じ処理を3回繰り返し書かないための、
-        // 共通化されたメソッド。
-        //
-        // reelName（文字列）で「どの窓を更新するか」を受け取り、
-        // switch文で振り分けている。
         private void UpdateReelDisplay(string reelName, int currentIndex)
         {
-            // ------------------------------------------------------------
-            // 前後2コマぶんのインデックスを計算する
-            // ------------------------------------------------------------
-            // マイナスにならないよう、先にCountを足してから % する、
-            // という今日繰り返し使ったテクニック。
             int bottom2Index = (currentIndex - 2 + slotItems.Count) % slotItems.Count;
             int bottom1Index = (currentIndex - 1 + slotItems.Count) % slotItems.Count;
             int top1Index = (currentIndex + 1) % slotItems.Count;
             int top2Index = (currentIndex + 2) % slotItems.Count;
 
-            // ------------------------------------------------------------
-            // reelNameの値によって、更新するPictureBoxを切り替える
-            // ------------------------------------------------------------
             switch (reelName)
             {
                 case "left":
@@ -825,17 +1030,10 @@ namespace GamePartsApp
             }
         }
 
-        // ------------------------------------------------------------
-        // ストップボタン：押すたびに、左→真ん中→右の順で止める
-        // ------------------------------------------------------------
         private void slotStopButton_Click(object sender, EventArgs e)
         {
-            // 押した回数を1つ増やす
             slotStopCount++;
 
-            // ------------------------------------------------------------
-            // 何回目の押下かによって、止める窓を切り替える
-            // ------------------------------------------------------------
             switch (slotStopCount)
             {
                 case 1:
@@ -853,38 +1051,24 @@ namespace GamePartsApp
                     slotStopButton.Text = "スタート";
                     slotStopButton.Enabled = false;
 
-                    // 3つとも止まったので、判定を行う
                     JudgeSlotResult();
 
-                    // 次のプレイに備えて、カウントをリセットする
                     slotStopCount = 0;
                     slotStartButton.Enabled = true;
                     break;
             }
         }
 
-        // ------------------------------------------------------------
-        // JudgeSlotResult：3つの窓が「揃ったか」を判定する
-        // ------------------------------------------------------------
         private void JudgeSlotResult()
         {
-            // 3つの窓の「今の図柄」を、それぞれ取得する
             GachaItem leftItem = slotItems[leftCurrentIndex];
             GachaItem centerItem = slotItems[centerCurrentIndex];
             GachaItem rightItem = slotItems[rightCurrentIndex];
 
-            // ------------------------------------------------------------
-            // 3つとも同じ名前（同じ図柄）かどうかを判定する
-            // ------------------------------------------------------------
-            // && （かつ）を使い、「左＝真ん中」と「真ん中＝右」の
-            // 両方が成立するときだけ、isMatchがtrueになる。
             bool isMatch = leftItem.Name == centerItem.Name && centerItem.Name == rightItem.Name;
 
             if (isMatch)
             {
-                // ------------------------------------------------------------
-                // 揃った！レア度に応じたコインを計算する
-                // ------------------------------------------------------------
                 int coinAmount = centerItem.Rarity switch
                 {
                     1 => 10,
@@ -894,8 +1078,11 @@ namespace GamePartsApp
                     _ => 5
                 };
 
+                playerCoins += coinAmount;
+                UpdateCoinDisplays();
+
                 MessageBox.Show(
-                    $"おめでとうございます！「{centerItem.Name}」が揃いました！\n{coinAmount}コインゲットしました！",
+                    $"おめでとうございます！「{centerItem.Name}」が揃いました！\n{coinAmount}コインゲットしました！\n（所持コイン：{playerCoins}）",
                     "スロット成功",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
@@ -913,51 +1100,3 @@ namespace GamePartsApp
         }
     }
 }
-
-
-// ====================================================================
-// 【このファイルの構造、まとめ】
-// ====================================================================
-// フィールド（クラス全体で使う変数）
-//   ├─ スキル選択用：skillSelector
-//   ├─ ガチャ用：gachaManager, gachaAnimationFrames, currentFrame,
-//   │           pendingResult, walkFrameIndex
-//   └─ スロット用：slotItems, leftCurrentIndex, centerCurrentIndex,
-//               rightCurrentIndex, slotStopCount
-//
-// コンストラクタ（Form1()）
-//   起動時の初期化：部品の見た目設定、アイテムリストの取得、
-//   最初のスキル表示
-//
-// スキル選択機能のメソッド群
-//   ハイライト（MouseEnter/Leave）、クリック処理、確認ダイアログ、
-//   リロール処理
-//
-// ガチャガチャ機能のメソッド群
-//   ボタンクリック、アニメーションTick、歩行アニメTick
-//
-// スロット機能のメソッド群
-//   スタートボタン、速度計算、3つのTimer Tick、表示更新の共通化、
-//   ストップボタン、揃ったかの判定
-
-
-// ====================================================================
-// 【今日の開発を通して、繰り返し使われたパターン、総まとめ】
-// ====================================================================
-// ① データクラス（Skill, GachaItem）＋ ロジッククラス（SkillSelector,
-//    GachaManager）の分離
-//
-// ② switch式による、レア度に応じた分岐（色、コイン量、速度など）
-//
-// ③ % を使った循環（歩行アニメ、スロットの3つの窓）
-//
-// ④ MessageBoxButtons.YesNo による確認ダイアログ
-//
-// ⑤ Timer を使った、定期的な処理（アニメーション、リールの回転）
-//
-// ⑥ null許容型（?）と、null チェックによる安全策
-//
-// ⑦ Enabled プロパティによる、ボタンの連打防止
-//
-// ⑧ 「Startした場所には、必ずStopの対を用意する」という設計原則
-//    （歩行アニメのバグ修正で、身をもって学んだ教訓）
