@@ -7,6 +7,15 @@ namespace GamePartsApp
     // ====================================================================
     // WeakEnemy1：近距離の雑魚（円形攻撃、格子攻撃、水玉弾幕、回避AI）
     // ====================================================================
+    /// <summary>
+    ///  近距離系の雑魚。複数の攻撃サイクル（円形・格子・水玉）を並行して管理します。
+    /// </summary>
+    // ⚠️全体を読む前に、まず知っておくべきこと：
+    // このクラスは「円形攻撃」「格子攻撃」「水玉弾幕」という
+    // 3つの攻撃サイクルを、"同時並行で"動かしている。
+    // Bossのように「1つずつ順番に」ではなく、
+    // 3つとも、独立したタイマーで、バラバラのタイミングで発動する。
+    // （実際にプレイすると、格子と水玉が同時に来ることもある）
     public class WeakEnemy1 : Enemy
     {
         private Random rand = new Random();
@@ -15,6 +24,9 @@ namespace GamePartsApp
         private const int DODGE_COOLDOWN = 90;
         private const int DODGE_CHANCE_PERCENT = 25;
 
+        // ------------------------------------------------------------
+        // サイクル①：円形攻撃
+        // ------------------------------------------------------------
         public bool IsWarning { get; private set; } = false;
         public bool IsAttackActive { get; private set; } = false;
         public bool HasDealtDamageThisAttack { get; private set; } = false;
@@ -28,6 +40,9 @@ namespace GamePartsApp
         private const int ATTACK_COOLDOWN = 90;
         public float AttackRadius { get; private set; } = 80f;
 
+        // ------------------------------------------------------------
+        // サイクル②：格子攻撃
+        // ------------------------------------------------------------
         public bool IsGridWarning { get; private set; } = false;
         public bool IsGridActive { get; private set; } = false;
 
@@ -47,7 +62,7 @@ namespace GamePartsApp
         public bool HasDealtGridDamage { get; private set; } = false;
 
         // ------------------------------------------------------------
-        // 水玉弾幕（画面全体に、避難できる隙間を残して埋め尽くす）
+        // サイクル③：水玉弾幕
         // ------------------------------------------------------------
         public bool IsBubbleWarning { get; private set; } = false;
         public bool IsBubbleActive { get; private set; } = false;
@@ -64,20 +79,33 @@ namespace GamePartsApp
         private const int BUBBLE_ACTIVE_DURATION = 25;
         private const int BUBBLE_COOLDOWN = 180;
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント①：ScreenWidth/Heightを、なぜ持っているか
+        // ------------------------------------------------------------
+        // 水玉を「画面のどこに配置するか」を計算するには、
+        // 「画面の実際の幅・高さ」を知る必要がある。
+        // でも、このEnemyクラス自身は、Form1.csの画面サイズを
+        // 直接知る手段がない。
+        // そこで、Form1.cs側から「これが画面サイズだよ」と
+        // 教えてもらうための、書き込み可能なプロパティになっている。
+        // （gameStartButton_Clickの中で、
+        //   enemy1.ScreenWidth = gameTabPage.Width; のように設定している）
         public int ScreenWidth { get; set; } = 700;
         public int ScreenHeight { get; set; } = 400;
 
         // ------------------------------------------------------------
-        // コンストラクタに、省略可能な引数（maxHp, attackPower）を追加
+        // ⚠️つまづきポイント②：コンストラクタの「省略可能な引数」
         // ------------------------------------------------------------
-        // これにより、通常の雑魚としても、
-        // ボスの「強化された分身」としても、同じクラスを使い回せる。
+        // maxHp = 100, attackPower = 20 という書き方により、
         //
-        // 通常呼び出し：new WeakEnemy1(500, 200);
-        //   → maxHpは省略されたので、デフォルトの100が使われる
+        //   new WeakEnemy1(500, 200)
+        //     → maxHp, attackPower を省略 → 自動的に100, 20になる
         //
-        // ボス用の呼び出し：new WeakEnemy1(300, 200, maxHp: 150, attackPower: 25);
-        //   → 明示的に指定した150, 25が使われる
+        //   new WeakEnemy1(300, 200, maxHp: 150, attackPower: 25)
+        //     → 明示的に指定した150, 25が使われる（ボス分身用）
+        //
+        // 同じクラスを、通常の雑魚にも、強化されたボス分身にも
+        // 使い回せる、今日の設計の要になっている部分。
         public WeakEnemy1(float startX, float startY, int maxHp = 100, int attackPower = 20)
             : base("雑魚(近距離)", startX, startY, maxHp, attackPower)
         {
@@ -124,9 +152,6 @@ namespace GamePartsApp
             gridWarningFramesLeft = GRID_WARNING_DURATION;
         }
 
-        // ------------------------------------------------------------
-        // 水玉弾幕を開始する
-        // ------------------------------------------------------------
         private void StartBubbleAttack()
         {
             DangerBubbles.Clear();
@@ -146,13 +171,29 @@ namespace GamePartsApp
             bubbleWarningFramesLeft = BUBBLE_WARNING_DURATION;
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント③：UpdateFrameの中は、
+        // 「移動」＋「3つの独立サイクル」＋「円形攻撃のreturn付きサイクル」
+        // という、4つのブロックが順番に並んでいる
+        // ------------------------------------------------------------
+        // 読むときのコツ：
+        // 上から順番に「これは何を処理しているブロックか」を、
+        // コメントで区切って追っていくとよい。
+        // 格子攻撃・水玉弾幕の2ブロックには return がないので、
+        // どちらも必ず最後まで実行される（並行して動く理由はここ）。
+        // 円形攻撃のブロックだけ return があるので、
+        // 「予告中/発動中」なら、そこでメソッドが終わる。
         public override void UpdateFrame(float playerX, float playerY)
         {
+            // 【ブロックA】回避のクールダウン
             if (dodgeCooldownFrames > 0)
             {
                 dodgeCooldownFrames--;
             }
 
+            // 【ブロックB】プレイヤーへの接近移動
+            // 円形攻撃の予告/発動中でなければ、動く。
+            // （格子・水玉の予告/発動中でも、この移動は止まらない点に注意）
             if (!IsWarning && !IsAttackActive)
             {
                 float dx = playerX - X;
@@ -166,6 +207,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 【ブロックC】格子攻撃のサイクル（returnなし＝必ず最後まで実行）
             if (IsGridActive)
             {
                 gridActiveFramesLeft--;
@@ -195,6 +237,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 【ブロックD】水玉弾幕のサイクル（returnなし＝Cと並行して動く）
             if (IsBubbleActive)
             {
                 bubbleActiveFramesLeft--;
@@ -224,6 +267,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 【ブロックE】円形攻撃のサイクル（ここだけ return がある）
             if (IsAttackActive)
             {
                 attackFramesLeft--;
@@ -278,6 +322,8 @@ namespace GamePartsApp
     // ====================================================================
     // WeakEnemy2：遠距離の雑魚（連射攻撃、円形攻撃、水玉弾幕）
     // ====================================================================
+    // ⚠️WeakEnemy1と、ほぼ同じ「並行サイクル」の構造。
+    // 違いは、メインの攻撃が「円形」ではなく「連射（burst）」である点。
     public class WeakEnemy2 : Enemy
     {
         public bool IsWarning { get; private set; } = false;
@@ -295,14 +341,22 @@ namespace GamePartsApp
         public float AttackTargetX { get; private set; }
         public float AttackTargetY { get; private set; }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント④：burstCount と hasLastPosition の役割
+        // ------------------------------------------------------------
+        // burstCount：今、連射の何発目か（0＝1発目、1＝2発目）
+        // hasLastPosition：「1つ前の、プレイヤーの位置」を、
+        //   まだ記録していない（ゲーム開始直後などの）状態を区別するフラグ。
+        //   これがfalseのうちは、"先読み"の計算ができないので、
+        //   1発目と同じ「今の位置」を狙うようにしている。
         private int burstCount = 0;
-        private const int BURST_MAX = 2;
+        private const int BURST_MAX = 4;
 
         private float lastPlayerX, lastPlayerY;
         private bool hasLastPosition = false;
 
         // ------------------------------------------------------------
-        // 円形（範囲）攻撃
+        // サイクル：円形（範囲）攻撃
         // ------------------------------------------------------------
         public bool IsCircularWarning { get; private set; } = false;
         public bool IsCircularActive { get; private set; } = false;
@@ -318,7 +372,7 @@ namespace GamePartsApp
         public float CircularRadius { get; private set; } = 70f;
 
         // ------------------------------------------------------------
-        // 水玉弾幕（WeakEnemy1と同じ仕組み）
+        // サイクル：水玉弾幕（WeakEnemy1と全く同じ仕組み）
         // ------------------------------------------------------------
         public bool IsBubbleWarning { get; private set; } = false;
         public bool IsBubbleActive { get; private set; } = false;
@@ -340,9 +394,6 @@ namespace GamePartsApp
         public int ScreenWidth { get; set; } = 700;
         public int ScreenHeight { get; set; } = 400;
 
-        // ------------------------------------------------------------
-        // コンストラクタに、省略可能な引数を追加（WeakEnemy1と同じ考え方）
-        // ------------------------------------------------------------
         public WeakEnemy2(float startX, float startY, int maxHp = 100, int attackPower = 20)
             : base("雑魚(遠距離)", startX, startY, maxHp, attackPower)
         {
@@ -350,10 +401,19 @@ namespace GamePartsApp
             bubbleCooldownFramesLeft = 220;
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑤：先読み計算の中身
+        // ------------------------------------------------------------
+        // moveDx, moveDy は「前回位置から、今の位置までの移動量」。
+        // それを3倍にして「今の位置」に足すことで、
+        // 「今と同じ速度・方向で、あと3フレーム分動いたら
+        //   いるであろう位置」を狙い撃ちしている。
+        // これが「移動方向の先読み」の正体。
         private void StartNextShot(float playerX, float playerY)
         {
             if (burstCount == 0 || !hasLastPosition)
             {
+                // 1発目、または前回位置がまだない場合は、今の位置をそのまま狙う
                 AttackTargetX = playerX;
                 AttackTargetY = playerY;
             }
@@ -374,18 +434,12 @@ namespace GamePartsApp
             warningFramesLeft = WARNING_DURATION;
         }
 
-        // ------------------------------------------------------------
-        // 円形攻撃を開始する
-        // ------------------------------------------------------------
         private void StartCircularAttack()
         {
             IsCircularWarning = true;
             circularWarningFramesLeft = CIRCULAR_WARNING_DURATION;
         }
 
-        // ------------------------------------------------------------
-        // 水玉弾幕を開始する（WeakEnemy1と同じロジック）
-        // ------------------------------------------------------------
         private void StartBubbleAttack()
         {
             DangerBubbles.Clear();
@@ -404,6 +458,7 @@ namespace GamePartsApp
 
         public override void UpdateFrame(float playerX, float playerY)
         {
+            // 移動（連射攻撃の予告/発動中でなければ）
             if (!IsWarning && !IsAttackActive)
             {
                 float dx = playerX - X;
@@ -417,6 +472,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 円形攻撃のサイクル（returnなし、並行して動く）
             if (IsCircularActive)
             {
                 circularActiveFramesLeft--;
@@ -446,6 +502,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 水玉弾幕のサイクル（returnなし、これも並行して動く）
             if (IsBubbleActive)
             {
                 bubbleActiveFramesLeft--;
@@ -475,6 +532,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 遠距離（連射）攻撃のサイクル（ここだけ return がある）
             if (IsAttackActive)
             {
                 attackFramesLeft--;
@@ -482,6 +540,13 @@ namespace GamePartsApp
                 {
                     IsAttackActive = false;
 
+                    // ------------------------------------------------------------
+                    // ⚠️つまづきポイント⑥：連射の継続判定
+                    // ------------------------------------------------------------
+                    // burstCount を増やした後、まだBURST_MAX未満なら、
+                    // クールダウンを挟まず、すぐに次の弾（2発目）の予告を始める。
+                    // BURST_MAXに達していたら、初めて通常のクールダウンに入り、
+                    // burstCountを0に戻して「次回はまた1発目から」にする。
                     burstCount++;
                     if (burstCount < BURST_MAX)
                     {

@@ -5,20 +5,17 @@ namespace GamePartsApp
     // ====================================================================
     // Playerクラス：アクションゲームの、プレイヤーキャラクター
     // ====================================================================
+    /// <summary>
+    ///  プレイヤーの位置・HP・攻撃・回避など、操作に関する状態と振る舞いを管理します。
+    /// </summary>
     public class Player
     {
-        // ------------------------------------------------------------
-        // 位置に関するプロパティ
-        // ------------------------------------------------------------
         public float X { get; set; }
         public float Y { get; set; }
 
-        // ------------------------------------------------------------
-        // ステータス
-        // ------------------------------------------------------------
         public int HP { get; private set; } = 100;
         public int AttackPower { get; set; } = 20;
-        public float Radius { get; set; } = 15f;  // 当たり判定の半径
+        public float Radius { get; set; } = 15f;
 
         // ------------------------------------------------------------
         // 回避に関する状態
@@ -26,10 +23,13 @@ namespace GamePartsApp
         public bool IsInvincible { get; private set; } = false;
         private int invincibleFramesLeft = 0;
 
-        private const int DODGE_DURATION = 15;   // 何フレーム、無敵になるか
-        private const int DODGE_COOLDOWN = 60;   // 何フレーム、再使用まで待つか
+        private const int DODGE_DURATION = 15;
+        private const int DODGE_COOLDOWN = 60;
         private int cooldownFramesLeft = 0;
-        // Player.cs に追加
+
+        // ------------------------------------------------------------
+        // 攻撃（近接・遠距離）の状態
+        // ------------------------------------------------------------
         public enum AttackType { None, Melee, Ranged }
         public AttackType CurrentAttack { get; private set; } = AttackType.None;
         public bool IsAttackWarning { get; private set; } = false;
@@ -38,28 +38,31 @@ namespace GamePartsApp
         private int attackWarningFramesLeft = 0;
         private int attackActiveFramesLeft = 0;
 
-        private const int MELEE_WARNING_DURATION = 20;   // 近接：約0.3秒の予告
-        private const int MELEE_ACTIVE_DURATION = 8;      // 近接：短い判定時間
-        private const int RANGED_WARNING_DURATION = 30;   // 遠距離：やや長めの予告（ため）
+        private const int MELEE_WARNING_DURATION = 20;
+        private const int MELEE_ACTIVE_DURATION = 8;
+        private const int RANGED_WARNING_DURATION = 30;
         private const int RANGED_ACTIVE_DURATION = 10;
         public bool HasDealtDamageThisAttack { get; private set; } = false;
 
         // ------------------------------------------------------------
-        // 近接攻撃を開始する
+        // ⚠️つまづきポイント①：「攻撃中は、二重に始めない」ガード
         // ------------------------------------------------------------
+        // すでに予告中(IsAttackWarning)か発動中(IsAttackActive)なら、
+        // 何もせず return する。
+        //
+        // これがないと、例えば「予告中にもう一度右クリック」したとき、
+        // attackWarningFramesLeft が上書きされてしまい、
+        // カウントダウンが変な挙動になるバグの原因になる。
         public void StartMeleeAttack()
         {
-            if (IsAttackWarning || IsAttackActive) return;  // 攻撃中は、二重に始めない
+            if (IsAttackWarning || IsAttackActive) return;
 
             CurrentAttack = AttackType.Melee;
             IsAttackWarning = true;
             attackWarningFramesLeft = MELEE_WARNING_DURATION;
-            HasDealtDamageThisAttack = false;  // ★追加
+            HasDealtDamageThisAttack = false;
         }
 
-        // ------------------------------------------------------------
-        // 遠距離攻撃を開始する
-        // ------------------------------------------------------------
         public void StartRangedAttack()
         {
             if (IsAttackWarning || IsAttackActive) return;
@@ -67,12 +70,9 @@ namespace GamePartsApp
             CurrentAttack = AttackType.Ranged;
             IsAttackWarning = true;
             attackWarningFramesLeft = RANGED_WARNING_DURATION;
-            HasDealtDamageThisAttack = false;  // ★追加：新しい攻撃なので、リセット
+            HasDealtDamageThisAttack = false;
         }
 
-        // ------------------------------------------------------------
-        // コンストラクタ
-        // ------------------------------------------------------------
         public Player(float startX, float startY)
         {
             X = startX;
@@ -80,18 +80,22 @@ namespace GamePartsApp
         }
 
         // ------------------------------------------------------------
-        // 移動：方向を受け取り、座標を動かす
+        // ⚠️つまづきポイント②：Move の中の早期リターン
         // ------------------------------------------------------------
+        // if (IsStunned) return; がここにあることで、
+        // 「スタン中は、いくらWASDを押しても、実際には動かない」
+        // という仕様が実現されている。
+        //
+        // 呼び出す側（Form1.cs）は、IsStunnedを意識せず
+        // 常に player.Move(dx, dy, speed) を呼んでいるだけでよい。
+        // 「動けるかどうかの判断」は、Playerクラス自身の責任にしている。
         public void Move(float dx, float dy, float speed)
         {
-
-            // ------------------------------------------------------------
-            // ★追加：スタン中は、移動を受け付けない
-            // ------------------------------------------------------------
             if (IsStunned) return;
             X += dx * speed;
             Y += dy * speed;
         }
+
         public void MarkDamageDealt()
         {
             HasDealtDamageThisAttack = true;
@@ -100,8 +104,8 @@ namespace GamePartsApp
         // ------------------------------------------------------------
         // 回避：Eキーが押されたときに呼ぶ
         // ------------------------------------------------------------
-        // Player.cs に追加
         public float DodgeRotation { get; private set; } = 0f;
+
         public void Dodge()
         {
             // クールダウン中は、回避できないようにする
@@ -110,15 +114,13 @@ namespace GamePartsApp
             IsInvincible = true;
             invincibleFramesLeft = DODGE_DURATION;
             cooldownFramesLeft = DODGE_COOLDOWN;
-            DodgeRotation = 0f;  // 回転をリセット
+            DodgeRotation = 0f;
         }
+
         public bool IsStunned { get; private set; } = false;
         private int stunFramesLeft = 0;
-        private const int STUN_DURATION = 10;  // 約0.5秒、動けなくなる
+        private const int STUN_DURATION = 10;
 
-        // ------------------------------------------------------------
-        // スタンさせる（外部から呼ばれる）
-        // ------------------------------------------------------------
         public void ApplyStun()
         {
             IsStunned = true;
@@ -126,33 +128,46 @@ namespace GamePartsApp
         }
 
         // ------------------------------------------------------------
-        // 毎フレーム呼ぶ、状態の更新処理
+        // ⚠️つまづきポイント③：UpdateFrameの中身、4つの独立したブロック
         // ------------------------------------------------------------
+        // このメソッドの中には、
+        //   ①無敵（回避）のカウントダウン
+        //   ②クールダウンのカウントダウン
+        //   ③スタンのカウントダウン
+        //   ④攻撃（予告→発動）のカウントダウン
+        // という、4つの"別々の仕組み"が、並んで書かれている。
+        //
+        // これらは互いに独立しており、
+        // 「①が終わっていないと④が動かない」というような
+        // 依存関係はない。毎フレーム、4つとも同時にチェックされる。
+        //
+        // 読むときのコツ：
+        // 1つのif文のカタマリごとに「これは何のカウントダウンか」
+        // ラベルをつけながら読むと、混乱しにくい。
         public void UpdateFrame()
         {
-            // 無敵時間のカウントダウン
+            // ①無敵時間のカウントダウン（＋回転角度の計算）
             if (invincibleFramesLeft > 0)
             {
                 invincibleFramesLeft--;
-                // ------------------------------------------------------------
-                // ★追加：無敵中は、回転角度を進める
-                // ------------------------------------------------------------
-                // DODGE_DURATION（15フレーム）で、ちょうど360度回るように計算
+
+                // DODGE_DURATION（15フレーム）で、ちょうど360度回るように
+                // 1フレームあたり (360 / 15) 度ずつ、回転を進めている。
                 DodgeRotation += 360f / DODGE_DURATION;
+
                 if (invincibleFramesLeft == 0)
                 {
                     IsInvincible = false;
                 }
             }
 
-            // クールダウンのカウントダウン
+            // ②クールダウンのカウントダウン（回避の再使用までの待ち時間）
             if (cooldownFramesLeft > 0)
             {
                 cooldownFramesLeft--;
             }
-            // ------------------------------------------------------------
-            // ★追加：スタンのカウントダウン
-            // ------------------------------------------------------------
+
+            // ③スタンのカウントダウン
             if (stunFramesLeft > 0)
             {
                 stunFramesLeft--;
@@ -160,8 +175,14 @@ namespace GamePartsApp
                 {
                     IsStunned = false;
                 }
-           
             }
+
+            // ------------------------------------------------------------
+            // ④攻撃（予告→発動）のカウントダウン
+            // ------------------------------------------------------------
+            // ⚠️ここが if / else if の関係になっている点に注意。
+            // IsAttackWarning が true の間は、IsAttackActive側は見られない。
+            // 「予告→発動」は、同時には起こらない、一直線の流れだから。
             if (IsAttackWarning)
             {
                 attackWarningFramesLeft--;
@@ -169,7 +190,11 @@ namespace GamePartsApp
                 {
                     IsAttackWarning = false;
                     IsAttackActive = true;
-                    attackActiveFramesLeft = CurrentAttack == AttackType.Melee ? MELEE_ACTIVE_DURATION : RANGED_ACTIVE_DURATION;
+                    // 三項演算子：近接ならMELEE、遠距離ならRANGEDの
+                    // ACTIVE_DURATIONを選ぶ
+                    attackActiveFramesLeft = CurrentAttack == AttackType.Melee
+                        ? MELEE_ACTIVE_DURATION
+                        : RANGED_ACTIVE_DURATION;
                 }
             }
             else if (IsAttackActive)
@@ -188,13 +213,11 @@ namespace GamePartsApp
         // ------------------------------------------------------------
         public void TakeDamage(int damage)
         {
-            if (IsInvincible) return;  // 無敵中なら、ダメージを受けない
+            if (IsInvincible) return;
 
             HP = Math.Max(HP - damage, 0);
         }
 
-
         public bool IsAlive => HP > 0;
-
     }
 }

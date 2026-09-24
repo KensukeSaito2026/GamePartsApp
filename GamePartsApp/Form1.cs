@@ -5,18 +5,40 @@ using System.Windows.Forms;
 
 namespace GamePartsApp
 {
+    /// <summary>
+    ///  メインフォーム。ユーザー入力、UI、ゲームループ（タイマー）および描画処理を担当します。
+    ///  ゲームの状態管理や画面遷移もここで行われます。
+    /// </summary>
     public partial class Form1 : Form
     {
+        // ====================================================================
+        // ★アクションゲーム関連：フィールド
+        // ====================================================================
         private Player player;
         private WeakEnemy1 enemy1;
         private WeakEnemy2 enemy2;
 
         // ------------------------------------------------------------
-        // 単独のBossではなく、分身2体を個別のフィールドで管理する
+        // ⚠️つまづきポイント①：ボスは「単独の1体」ではなく、
+        // 「WeakEnemy1/2を強化した、分身2体」として管理している
         // ------------------------------------------------------------
+        // Boss.csというクラスは別に存在するが、
+        // 今のボス戦（stageIndex==2）では、実はそちらを使っていない。
+        // 代わりに、雑魚1・雑魚2と同じ型（WeakEnemy1, WeakEnemy2）を、
+        // パラメータだけ強くして、2体同時に登場させている。
         private WeakEnemy1 bossClone1;
         private WeakEnemy2 bossClone2;
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント②：currentTarget は「雑魚1体だけを指す」
+        // 変数。ボス戦のときは、この変数は使わない（nullのまま）
+        // ------------------------------------------------------------
+        // 「今、誰と戦っているか」を表す変数だが、
+        // ボス戦（分身2体）は、bossClone1/2という
+        // 別々のフィールドで管理しているため、
+        // stageIndex == 2 のときは currentTarget = null にしてある。
+        // コード中で「stageIndexが2かどうか」を、
+        // 何度も分岐条件として使っているのは、このため。
         private Enemy currentTarget;
         private int stageIndex = 0;
 
@@ -26,7 +48,7 @@ namespace GamePartsApp
         private int playerCoins = 0;
 
         // ------------------------------------------------------------
-        // コインアニメーション用フィールド
+        // コインアニメーション用フィールド（ゲームタブ内の表示用）
         // ------------------------------------------------------------
         private List<Image> coinFrames = new List<Image>();
         private int coinFrameIndex = 0;
@@ -44,6 +66,9 @@ namespace GamePartsApp
             gameTabPage.Invalidate();
         }
 
+        // ------------------------------------------------------------
+        // ゲームスタートボタン：全キャラクターを、ここで一斉に生成する
+        // ------------------------------------------------------------
         private void gameStartButton_Click(object sender, EventArgs e)
         {
             player = new Player(200, 200);
@@ -51,11 +76,24 @@ namespace GamePartsApp
             enemy2 = new WeakEnemy2(500, 200);
 
             // ------------------------------------------------------------
-            // ボスの分身2体を、少し強化したパラメータで作る
+            // ⚠️つまづきポイント③：ボスの分身は、コンストラクタの
+            // 省略可能引数（maxHp:, attackPower:）を使って強化している
             // ------------------------------------------------------------
+            // enemy1/2と全く同じクラスなのに、
+            // maxHp: 150, attackPower: 25 と明示的に指定することで、
+            // 通常の雑魚（HP100, 攻撃力20）より強い個体として作られる。
             bossClone1 = new WeakEnemy1(150, 180, maxHp: 150, attackPower: 25);
             bossClone2 = new WeakEnemy2(650, 220, maxHp: 150, attackPower: 25);
 
+            // ------------------------------------------------------------
+            // ⚠️つまづきポイント④：水玉弾幕は、画面サイズを"教えて
+            // もらわないと"正しい範囲に配置できない
+            // ------------------------------------------------------------
+            // WeakEnemy1/2クラス自身は、Form1.csの画面サイズを知らない。
+            // そこで、敵を作った直後に、必ずこの4行で
+            // 「今の画面サイズ」を、それぞれの敵に教えている。
+            // これを忘れると、水玉が画面外（見えない場所）に
+            // 配置されてしまうバグになる。
             bossClone1.ScreenWidth = gameTabPage.Width;
             bossClone1.ScreenHeight = gameTabPage.Height;
             bossClone2.ScreenWidth = gameTabPage.Width;
@@ -115,6 +153,16 @@ namespace GamePartsApp
             }
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑤：gameTimer.Stop() は、必ず
+        // MessageBox.Show の"前"に置く
+        // ------------------------------------------------------------
+        // MessageBox.Show は、それ以降のコードの実行を止めるが、
+        // すでに動いているTimer自体は、裏側で動き続けてしまう。
+        // なので「ポップアップを出す前に、まずTimerを止める」
+        // という順番を、絶対に守る必要がある。
+        // この順番を間違えると、「ポップアップを見ている間に、
+        // 裏で敵がまだ攻撃してくる」というバグになる（今日、実際に直したバグ）。
         private void OnEnemyDefeated()
         {
             if (stageIndex == 0)
@@ -124,25 +172,34 @@ namespace GamePartsApp
 
                 playerCoins += 20;
                 UpdateCoinDisplays();
+                gameTimer.Stop();  // ← 必ずMessageBoxより前
                 MessageBox.Show($"雑魚1を倒した！20コイン獲得！\n（所持コイン：{playerCoins}）");
 
-                gameTimer.Stop();
                 mainTabControl.SelectedTab = skillTabPage;
             }
             else if (stageIndex == 1)
             {
                 stageIndex = 2;
-                currentTarget = null;
+                currentTarget = null;  // ボス戦に入るので、currentTargetはもう使わない
 
                 playerCoins += 30;
                 UpdateCoinDisplays();
+                gameTimer.Stop();
                 MessageBox.Show($"雑魚2を倒した！30コイン獲得！\n（所持コイン：{playerCoins}）\n\nボスの分身が現れた！");
 
-                gameTimer.Stop();
                 mainTabControl.SelectedTab = skillTabPage;
             }
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑥：分身が「片方だけ」倒されたときは、
+        // まだクリアにならない
+        // ------------------------------------------------------------
+        // このメソッドは、分身のどちらか1体が倒されるたびに呼ばれるが、
+        // 中身は「両方とも死んでいるか」を確認してから、
+        // 初めてクリア処理を実行する。
+        // 「1体だけ倒しても、まだゲームは続く」という仕様を、
+        // このif文1つで実現している。
         private void OnBossCloneDefeated()
         {
             bool anyAlive = (bossClone1 != null && bossClone1.IsAlive)
@@ -153,7 +210,7 @@ namespace GamePartsApp
                 stageIndex = 3;
                 playerCoins += 100;
                 UpdateCoinDisplays();
-
+                gameTimer.Stop();
                 MessageBox.Show(
                     "🎉 おめでとうございます！ 🎉\n\nボスの分身を全て撃破し、ゲームクリアです！\n\n獲得コイン：100枚",
                     "GAME CLEAR!!",
@@ -161,9 +218,10 @@ namespace GamePartsApp
                     MessageBoxIcon.Information
                 );
 
-                gameTimer.Stop();
                 gameStartButton.Enabled = true;
             }
+            // anyAliveがtrueのときは、何もしない
+            // （もう片方の分身が、まだ生きているので、戦闘続行）
         }
 
         private void HandlePlayerDefeat()
@@ -178,6 +236,14 @@ namespace GamePartsApp
             isDPressed = false;
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑦：CheckPlayerHitは、「誰に対して
+        // 判定するか」を、引数で受け取る"共通の判定装置"
+        // ------------------------------------------------------------
+        // このメソッド自身は「target」という抽象的な敵を受け取るだけで、
+        // それがenemy1なのか、bossClone2なのかは気にしない。
+        // 呼び出す側が「今どの敵と戦っているか」を判断して、
+        // このメソッドに渡すだけでいい設計になっている。
         private bool CheckPlayerHit(Enemy target)
         {
             if (player.CurrentAttack == Player.AttackType.Melee)
@@ -201,6 +267,8 @@ namespace GamePartsApp
 
                     if (toEnemyLength > 0 && toEnemyLength <= 300f)
                     {
+                        // 内積（ドット積）：2つの方向がどれくらい
+                        // 同じ向きかを、-1〜1の数値で表す
                         float dot = (rdx / rLength) * (toEnemyX / toEnemyLength)
                                   + (rdy / rLength) * (toEnemyY / toEnemyLength);
                         return dot > 0.9f;
@@ -211,12 +279,24 @@ namespace GamePartsApp
         }
 
         // ------------------------------------------------------------
-        // 指定したWeakEnemy1（通常雑魚orボス分身、共通）の攻撃を判定する
+        // ⚠️つまづきポイント⑧：ProcessWeakEnemy1Attacksは、
+        // 「敵の種類ごとの攻撃判定を、1箇所にまとめた」メソッド
         // ------------------------------------------------------------
+        // 引数の w1 には、通常の雑魚1（enemy1）が渡されることもあれば、
+        // ボス分身（bossClone1）が渡されることもある。
+        // どちらも同じ「WeakEnemy1型」なので、
+        // 中の判定ロジック（円形・格子・水玉）は、全く同じコードで動く。
+        //
+        // メソッドの中で return しているのは、
+        // 「プレイヤーがこの攻撃で死んでしまったら、
+        //   これ以降の判定（他の攻撃タイプ）はもうチェックしない」
+        // という意味。1フレームの間に、複数の攻撃で
+        // 立て続けにダメージが入るのを防いでいる。
         private void ProcessWeakEnemy1Attacks(WeakEnemy1 w1)
         {
             if (w1 == null || !w1.IsAlive) return;
 
+            // 円形攻撃の判定
             if (w1.IsAttackActive && !w1.HasDealtDamageThisAttack)
             {
                 float edx = player.X - w1.X;
@@ -237,6 +317,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 格子攻撃の判定（プレイヤーが今いるマスが危険かどうか）
             if (w1.IsGridActive && !w1.HasDealtGridDamage)
             {
                 float cellW = gameTabPage.Width / (float)WeakEnemy1.GRID_COLS;
@@ -262,6 +343,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 水玉弾幕の判定（プレイヤーが、どれか1つの水玉に触れていないか）
             if (w1.IsBubbleActive && !w1.HasDealtBubbleDamage)
             {
                 foreach (var bubble in w1.DangerBubbles)
@@ -281,16 +363,22 @@ namespace GamePartsApp
                             HandlePlayerDefeat();
                             return;
                         }
+                        // 1個の水玉に当たったら、他の水玉はチェックしなくていい
                         break;
                     }
                 }
             }
         }
 
+        // ------------------------------------------------------------
+        // ProcessWeakEnemy2Attacksも、⑧と全く同じ考え方
+        // （通常の雑魚2にも、ボス分身2にも、共通で使われる）
+        // ------------------------------------------------------------
         private void ProcessWeakEnemy2Attacks(WeakEnemy2 w2)
         {
             if (w2 == null || !w2.IsAlive) return;
 
+            // 連射攻撃の判定
             if (w2.IsAttackActive && !w2.HasDealtDamageThisAttack)
             {
                 float edx = player.X - w2.AttackTargetX;
@@ -311,6 +399,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 円形攻撃の判定
             if (w2.IsCircularActive && !w2.HasDealtCircularDamage)
             {
                 float cdx = player.X - w2.X;
@@ -331,6 +420,7 @@ namespace GamePartsApp
                 }
             }
 
+            // 水玉弾幕の判定
             if (w2.IsBubbleActive && !w2.HasDealtBubbleDamage)
             {
                 foreach (var bubble in w2.DangerBubbles)
@@ -356,6 +446,14 @@ namespace GamePartsApp
             }
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑨：接触ダメージも、targetを引数で受け取る
+        // 「共通メソッド」になっている
+        // ------------------------------------------------------------
+        // これも⑦⑧と同じ設計思想：
+        // 「誰に対する処理か」を外側（呼び出し元）が決め、
+        // このメソッド自身は「渡されたtargetに対して、
+        // 同じ計算をするだけ」という、汎用的な役割に徹している。
         private void ProcessContactDamage(Enemy target)
         {
             if (target == null || !target.IsAlive) return;
@@ -374,6 +472,7 @@ namespace GamePartsApp
                     player.ApplyStun();
                 }
 
+                // プレイヤーを、敵の外側まで押し出す（すり抜け防止）
                 float pushDx = player.X - target.X;
                 float pushDy = player.Y - target.Y;
                 float pushLength = (float)Math.Sqrt(pushDx * pushDx + pushDy * pushDy);
@@ -392,6 +491,17 @@ namespace GamePartsApp
             }
         }
 
+        // ------------------------------------------------------------
+        // gameTimer_Tick：毎フレーム、状態を更新する（ゲーム全体の心臓部）
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑩：このメソッドの中に、
+        // 「stageIndex == 2 かどうか」の分岐が、複数回出てくる
+        //
+        // ①プレイヤーの攻撃判定（誰に当たるかの分岐）
+        // ②敵の更新・攻撃判定（bossClone1/2 か、currentTarget かの分岐）
+        //
+        // 読むときは、「今はボス戦か、そうでないか」を、
+        // 一度頭の中で切り替えてから、該当するブロックだけを追うとよい。
         private void gameTimer_Tick(object sender, EventArgs e)
         {
             if (player == null) return;
@@ -408,15 +518,23 @@ namespace GamePartsApp
             player.X = Math.Clamp(player.X, player.Radius, gameTabPage.Width - player.Radius);
             player.Y = Math.Clamp(player.Y, player.Radius, gameTabPage.Height - player.Radius);
 
+            // コインアニメーションのフレームを進める
+            // ※ *6 しているのは、切り替わりを少しゆっくりにするため
+            //   （毎フレーム切り替えると速すぎて見えない）
             if (coinFrames.Count > 0)
             {
                 coinFrameIndex = (coinFrameIndex + 1) % (coinFrames.Count * 6);
             }
 
+            // ------------------------------------------------------------
+            // ①プレイヤーの攻撃判定：ボス戦か、それ以外かで分岐
+            // ------------------------------------------------------------
             if (player.IsAttackActive && !player.HasDealtDamageThisAttack)
             {
                 if (stageIndex == 2)
                 {
+                    // ボス戦：bossClone1、bossClone2の順に、
+                    // 「先に見つかった、当たった方」だけにダメージを与える
                     if (bossClone1 != null && bossClone1.IsAlive && CheckPlayerHit(bossClone1))
                     {
                         bossClone1.TakeDamage(player.AttackPower);
@@ -442,8 +560,12 @@ namespace GamePartsApp
                 }
             }
 
+            // ------------------------------------------------------------
+            // ②敵の更新・攻撃判定：これも、ボス戦かどうかで分岐
+            // ------------------------------------------------------------
             if (stageIndex == 2)
             {
+                // ボス戦：分身2体を、それぞれ独立して更新する
                 if (bossClone1 != null && bossClone1.IsAlive)
                 {
                     bossClone1.UpdateFrame(player.X, player.Y);
@@ -460,6 +582,8 @@ namespace GamePartsApp
             }
             else if (currentTarget != null && currentTarget.IsAlive)
             {
+                // 通常の雑魚戦：currentTargetが、
+                // WeakEnemy1かWeakEnemy2かで、呼ぶメソッドを分ける
                 currentTarget.UpdateFrame(player.X, player.Y);
 
                 if (currentTarget is WeakEnemy1 w1)
@@ -477,6 +601,10 @@ namespace GamePartsApp
             gameTabPage.Invalidate();
         }
 
+        // ------------------------------------------------------------
+        // DrawWeakEnemy1Attacks：見た目の描画も、判定処理⑧と
+        // 全く同じ「共通メソッド」の考え方で作られている
+        // ------------------------------------------------------------
         private void DrawWeakEnemy1Attacks(Graphics g, WeakEnemy1 w1)
         {
             if (w1.IsWarning || w1.IsAttackActive)
@@ -570,6 +698,9 @@ namespace GamePartsApp
             g.FillRectangle(Brushes.Lime, enemy.X - hpBarWidth / 2, enemy.Y - enemy.Radius - 15, hpBarWidth * hpRatio, 6);
         }
 
+        // ------------------------------------------------------------
+        // gameTabPage の描画処理：gameTimer_Tickと、ほぼ同じ構造の分岐
+        // ------------------------------------------------------------
         private void gameTabPage_Paint(object sender, PaintEventArgs e)
         {
             if (player == null) return;
@@ -633,6 +764,8 @@ namespace GamePartsApp
 
             e.Graphics.Restore(state);
 
+            // ⚠️gameTimer_Tickと同じ「stageIndex==2かどうか」の分岐が、
+            // 描画側でも繰り返されている
             if (stageIndex == 2)
             {
                 if (bossClone1 != null && bossClone1.IsAlive)
@@ -665,17 +798,19 @@ namespace GamePartsApp
             e.Graphics.FillRectangle(Brushes.Lime, 10, 10, 150 * playerHpRatio, 20);
             e.Graphics.DrawString($"HP: {player.HP}/100", this.Font, Brushes.White, 15, 11);
 
+            // コインアニメーション（ゲームタブ内）
             if (coinFrames.Count > 0)
             {
                 int frameToShow = coinFrameIndex / 6;
                 if (frameToShow >= coinFrames.Count) frameToShow = 0;
 
-                e.Graphics.DrawImage(coinFrames[frameToShow], 15, 35, 24, 24);
-                e.Graphics.DrawString($"x {playerCoins}", this.Font, Brushes.Yellow, 42, 38);
+                e.Graphics.DrawImage(coinFrames[frameToShow], 20, 35, 40, 40);
+                e.Graphics.DrawString($"x {playerCoins}", this.Font, Brushes.Blue, 70, 38);
             }
             else
             {
-                e.Graphics.DrawString($"コイン: {playerCoins}", this.Font, Brushes.Yellow, 15, 35);
+                // 画像が読み込めなかった場合の、文字だけのフォールバック表示
+                e.Graphics.DrawString($"コイン: {playerCoins}", this.Font, Brushes.Blue, 30, 40);
             }
 
             float dirDx = mouseX - player.X;
@@ -695,7 +830,14 @@ namespace GamePartsApp
         }
 
 
+        // ====================================================================
+        // フィールド①：スキル選択関連
+        // ====================================================================
         private SkillSelector skillSelector = new SkillSelector();
+
+        // ====================================================================
+        // フィールド②：ガチャガチャ関連
+        // ====================================================================
         private GachaManager gachaManager = new GachaManager();
 
         private List<string> gachaAnimationFrames = new List<string>
@@ -710,12 +852,18 @@ namespace GamePartsApp
         private GachaItem? pendingResult;
         private int walkFrameIndex = 0;
 
+        // ====================================================================
+        // フィールド③：スロット関連
+        // ====================================================================
         private List<GachaItem> slotItems;
         private int leftCurrentIndex = 0;
         private int centerCurrentIndex = 0;
         private int rightCurrentIndex = 0;
         private int slotStopCount = 0;
 
+        // ====================================================================
+        // コンストラクタ
+        // ====================================================================
         public Form1()
         {
             InitializeComponent();
@@ -735,18 +883,29 @@ namespace GamePartsApp
             UpdateCoinDisplays();
 
             // ------------------------------------------------------------
-            // コインアニメーション用の画像を、あらかじめ読み込んでおく
+            // ⚠️つまづきポイント⑪：コイン画像の読み込みは、
+            // 失敗しても「アプリが落ちない」ように、try-catchで守られている
             // ------------------------------------------------------------
-            // try-catchで囲むことで、画像ファイルが見つからなくても
-            // アプリ全体がクラッシュしないようにしている。
-            // 見つからなかった場合は、gameTabPage_Paintの中で
-            // 「文字だけの表示」にフォールバックする。
+            // もし images\coin_frame1.jpg 〜 4.jpg のどれかが
+            // 見つからなかった場合、Image.FromFileが例外を投げる。
+            // catchブロックでそれを受け止め、coinFrames.Clear() することで、
+            // 「アプリ全体が落ちる」代わりに、
+            // 「コイン表示が、文字だけのフォールバックになる」という、
+            // 安全な失敗の仕方にしている。
             try
             {
                 coinFrames.Add(Image.FromFile(@"images\coin_frame1.jpg"));
                 coinFrames.Add(Image.FromFile(@"images\coin_frame2.jpg"));
                 coinFrames.Add(Image.FromFile(@"images\coin_frame3.jpg"));
                 coinFrames.Add(Image.FromFile(@"images\coin_frame4.jpg"));
+
+                // ガチャ・スロット欄のPictureBoxにも、最初の1枚をセット
+                // （coinAnimTimerが動き出すまでの、一瞬の空白を防ぐため）
+                gachaCoinPictureBox.Image = coinFrames[0];
+                gachaCoinPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
+
+                slotCoinPictureBox.Image = coinFrames[0];
+                slotCoinPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             }
             catch
             {
@@ -754,6 +913,31 @@ namespace GamePartsApp
             }
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑫：ガチャ・スロット欄のコインは、
+        // gameTimerとは"別の"、独立したTimerで動いている
+        // ------------------------------------------------------------
+        // ゲームタブのコイン（gameTabPage_Paint内）は、
+        // gameTimer（ゲームが始まっているときだけ動く）に乗っかっている。
+        //
+        // でもガチャ・スロット欄は、
+        // 「ゲームをまだ始めていなくても」表示され続ける必要があるので、
+        // coinAnimTimerという、常時動く専用のTimerを別に用意している。
+        private int coinIconFrameIndex = 0;
+
+        private void coinAnimTimer_Tick(object sender, EventArgs e)
+        {
+            if (coinFrames.Count == 0) return;
+
+            coinIconFrameIndex = (coinIconFrameIndex + 1) % coinFrames.Count;
+
+            gachaCoinPictureBox.Image = coinFrames[coinIconFrameIndex];
+            slotCoinPictureBox.Image = coinFrames[coinIconFrameIndex];
+        }
+
+        // ====================================================================
+        // ★スキル選択機能
+        // ====================================================================
         private void skill1Panel_MouseEnter(object sender, EventArgs e)
         {
             skill1Panel.BackColor = Color.LightYellow;
@@ -799,6 +983,15 @@ namespace GamePartsApp
             ConfirmSkillSelection(skillSelector.CurrentChoices[2]);
         }
 
+        // ------------------------------------------------------------
+        // ⚠️つまづきポイント⑬：スキル選択後、ゲームタブに戻ると同時に
+        // gameTimerを再開している
+        // ------------------------------------------------------------
+        // 雑魚を倒した瞬間（OnEnemyDefeated内）でgameTimerを止めたので、
+        // スキルを選び終えたこのタイミングで、
+        // 対になる「Start」を呼ぶ必要がある。
+        // if (!gameTimer.Enabled && ...) というガードは、
+        // 「まだ止まっている場合だけ」再開する、という安全策。
         private void ConfirmSkillSelection(Skill skill)
         {
             DialogResult result = MessageBox.Show(
@@ -857,6 +1050,9 @@ namespace GamePartsApp
             skill3RarityLabel.ForeColor = choices[2].GetRarityColor();
         }
 
+        // ====================================================================
+        // ★ガチャガチャ機能
+        // ====================================================================
         private void gachaButton_Click(object sender, EventArgs e)
         {
             const int GACHA_COST = 10;
@@ -932,6 +1128,9 @@ namespace GamePartsApp
             gachaResultPictureBox.ImageLocation = pendingResult.WalkFrames[walkFrameIndex];
         }
 
+        // ====================================================================
+        // ★スロット機能
+        // ====================================================================
         private void slotStartButton_Click(object sender, EventArgs e)
         {
             const int SLOT_COST = 5;
